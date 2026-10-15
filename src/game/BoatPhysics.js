@@ -1,5 +1,6 @@
+import { WORLD_LIMIT } from "./AdiyogiTerrain.js";
 import { BOAT_SCALE, DOCK, START } from "./WorldConfig.js";
-import { seabedHeightAt, seabedMaxHeightWithin, coastalRadiusAt } from "./Seabed.js";
+import { seabedHeightAt, seabedMaxHeightWithin, worldCoastalRadiusAt } from "./Seabed.js";
 import { gateTerrainHeight } from "./GateTerrain.js";
 import { boatProfile } from "./BoatProfiles.js";
 import { advanceBoatHullPose } from "./BoatHull.js";
@@ -146,7 +147,7 @@ export function resolveHullCoast(state, time = state.visualTime ?? 0) {
     measureHullSeabed(state, time, scratch);
     if (scratch.margin >= CONTACT_GAP || !Number.isFinite(scratch.margin)) return;
     if (!scratch.rock && !state.beached && Math.hypot(motion.x, motion.z) > 2.8
-      && coastalRadiusAt(state.position.x, state.position.z) < 1.3) {
+      && worldCoastalRadiusAt(state.position.x, state.position.z) < 1.3) {
       state.beached = true;
       state.beachedTime = 0;
       state.angularVelocity = (state.steering ?? 0) * boatProfile(state.boatId).turnRate;
@@ -242,7 +243,7 @@ export function stepBoat(state, controls, frameDelta, visualTime = (state.visual
       // Broadside slides dig in harder than a straight bow-first landing.
       const sideways = Math.abs(motion.x * Math.cos(state.heading) - motion.z * Math.sin(state.heading));
       // Build resistance as the hull leaves the wet shallows and bears on sand.
-      const sandLoad = Math.max(0, Math.min(1, (1.10 - coastalRadiusAt(x, z)) / 0.12));
+      const sandLoad = Math.max(0, Math.min(1, (1.10 - worldCoastalRadiusAt(x, z)) / 0.12));
       const sandResistance = controls.brake ? 8 : 2.1 + sandLoad * (2.5 + speed * 0.28 + sideways * 0.9);
       const drag = Math.max(0, (uphillSpeed - sandResistance * dt) / Math.max(speed, 0.001));
       motion.x *= drag; motion.z *= drag;
@@ -277,8 +278,8 @@ export function stepBoat(state, controls, frameDelta, visualTime = (state.visual
       resolveHullCoast(state, visualTime);
     }
     const radius = Math.hypot(state.position.x, state.position.z + 5);
-    if (radius > 59 - HALF_LENGTH) {
-      const scale = (59 - HALF_LENGTH) / radius;
+    if (radius > WORLD_LIMIT - HALF_LENGTH) {
+      const scale = (WORLD_LIMIT - HALF_LENGTH) / radius;
       state.position.x *= scale;
       state.position.z = (state.position.z + 5) * scale - 5;
       state.speed *= 0.8;

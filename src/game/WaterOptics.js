@@ -1,5 +1,7 @@
 import { seabedSampleAt } from "./Seabed.js";
 
+export const WAVE_FADE_START = 180;
+export const WAVE_FADE_END = 190;
 export const OCEAN_SEA_LEVEL = -0.08;
 // Scene-scale coefficients are calibrated separately for direct transmission and
 // path radiance. They are not measurements of a particular ocean water sample.
@@ -101,9 +103,9 @@ export function sampleOceanSurface(x, z, time, target = {}) {
   dx = dx * shallow - height * shallowDerivative * bedDx + longDx * swash - longHeight * swashDerivative * bedDx;
   dz = dz * shallow - height * shallowDerivative * bedDz + longDz * swash - longHeight * swashDerivative * bedDz;
   height = height * shallow + longHeight * swash;
-  fadeWithDerivative(38, 48, Math.abs(x), fadeScratch);
+  fadeWithDerivative(WAVE_FADE_START, WAVE_FADE_END, Math.abs(x), fadeScratch);
   const farX = 1 - fadeScratch[0], farDx = -fadeScratch[1] * Math.sign(x);
-  fadeWithDerivative(38, 48, Math.abs(z), fadeScratch);
+  fadeWithDerivative(WAVE_FADE_START, WAVE_FADE_END, Math.abs(z), fadeScratch);
   const farZ = 1 - fadeScratch[0], farDz = -fadeScratch[1] * Math.sign(z);
   const fade = farX * farZ;
   dx = dx * fade + height * farDx * farZ;
@@ -254,7 +256,7 @@ return `vec2 q${i}=vec2(dot(p,vec2(${c.toFixed(9)},${ss.toFixed(9)})),dot(p,vec2
   n0.y*${Math.sin(OCEAN_WAVE_BANDS[0][2]).toFixed(9)}+n0.z*${Math.cos(OCEAN_WAVE_BANDS[0][2]).toFixed(9)});
  slope=slope*shallow-height*shallowDerivative*bed.yz+longSlope*swash-longHeight*swashDerivative*bed.yz;
  height=height*shallow+longHeight*swash;
- vec2 farT=clamp((abs(p)-38.)/10.,0.,1.);
+ vec2 farT=clamp((abs(p)-${WAVE_FADE_START.toFixed(1)})/${(WAVE_FADE_END - WAVE_FADE_START).toFixed(1)},0.,1.);
  vec2 far=vec2(1.)-farT*farT*(3.-2.*farT);
  vec2 farDerivative=-6.*farT*(1.-farT)/10.*sign(p);
  return vec3(height*far.x*far.y,slope*far.x*far.y+height*farDerivative*far.yx);

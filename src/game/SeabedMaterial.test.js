@@ -8,21 +8,25 @@ import {
 } from "./Seabed.js";
 
 const hash = array => createHash("sha256").update(Buffer.from(array.buffer, array.byteOffset, array.byteLength)).digest("hex");
-test("material classification preserves the held physical terrain and collision field byte for byte", () => {
+test("material classification preserves the two-island terrain regression baseline", () => {
   const geometry = createSeabedGeometry(), height = createSeabedFieldTexture();
-  // Recorded from held source 93 before material-field extraction. These cover
-  // every physical vertex, normal, triangle index, and GPU depth-field sample.
-  assert.equal(hash(geometry.attributes.position.array), "8e6a42d919a239999d944acee5feff22965ac6126827ad4554fb5abdee76ea17");
-  assert.equal(hash(geometry.attributes.normal.array), "7f16edb56fa85d363e16d5ac9de80a276892218243a5ed9d6caaa0da8cf1ef8a");
-  assert.equal(hash(geometry.index.array), "eada82cb26f4319005be39ecc7421362eccd29663c70c5c088ade953934b6e75");
-  assert.equal(hash(height.image.data), "d890b68d713adde721241d683125b12e2561f6f4b91aada4fc3e1353907e27e6");
+  // Updated for the intentional Adiyogi terrain expansion (15 October 2026).
+  // Covers every physical vertex, normal, index and GPU depth sample; the
+  // seabed tests separately verify original shoreline and CPU/GPU agreement.
+  assert.equal(hash(geometry.attributes.position.array), "827e803f1656b2ad0de21629790173fd0574533270ba71a507e9d65940191f96");
+  assert.equal(hash(geometry.attributes.normal.array), "7c3b87d2344c4bbe639680917c04244702db79307bc92381cf1c504461588626");
+  assert.equal(hash(geometry.index.array), "9da826731e7c65a4ecdf42c0c97c80d524ef4180f8d4e31eb81c1f989863fac8");
+  assert.equal(hash(height.image.data), "7bbbb745c5db855156de1585f401e31dcc10f010e61aaea3be29766e012677e6");
   geometry.dispose(); height.dispose();
 });
 
 test("underwater coastal sand uses the island's actual wet-edge palette", () => {
   const islandWetEdge = new Color(ISLAND_SAND_PALETTE.dry).lerp(new Color(ISLAND_SAND_PALETTE.wet), ISLAND_SAND_PALETTE.wetBlend).toArray();
   assert.deepEqual(COAST_SAND_ALBEDO, islandWetEdge);
-  assert.ok(COAST_SAND_ALBEDO[0] > 0.7 && COAST_SAND_ALBEDO[1] > 0.6);
+  // Albedo is linear, not sRGB. Preserve the authored warm sand relationship
+  // without imposing obsolete brightness thresholds from the old palette.
+  assert.ok(COAST_SAND_ALBEDO.every(channel => channel > 0 && channel < 1));
+  assert.ok(COAST_SAND_ALBEDO[0] > COAST_SAND_ALBEDO[1] && COAST_SAND_ALBEDO[1] > COAST_SAND_ALBEDO[2]);
   assert.ok(Object.isFrozen(ISLAND_SAND_PALETTE) && Object.isFrozen(COAST_SAND_ALBEDO));
 });
 

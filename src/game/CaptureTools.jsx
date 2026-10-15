@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
-// Development-only recording of the actual rendered canvas, without screen permissions.
-export default function CaptureTools({ focus = "scene", onFocus }) {
+// Debug recording of the actual rendered canvas, without screen permissions.
+export default function CaptureTools({ focus = "scene", onFocus, onRehearse, onRehearseDiscovery, onEndRehearsal }) {
   const [recording, setRecording] = useState(false), [clip, setClip] = useState(null), [error, setError] = useState("");
   const capture = useRef(null), clipUrl = useRef(null), clipBlob = useRef(null);
   const [saved, setSaved] = useState("");
@@ -55,24 +55,46 @@ export default function CaptureTools({ focus = "scene", onFocus }) {
     } catch (failure) { setError(failure.message); }
   }
 
-  return <aside style={{position:"fixed",bottom:64,right:18,zIndex:20,padding:12,borderRadius:12,background:"#143e35",color:"#fff",display:"flex",gap:12,alignItems:"center"}} aria-label="Scene capture">
+  function downloadPerformance() {
+    const root=document.querySelector('main.app');
+    const fields=['fps','mainDrawCalls','underwaterDrawCalls','drawCalls','mainTriangles','underwaterTriangles','triangles','geometries','textures','shaderPrograms','gpuTiming','gpuFrameMs','cpuRenderMs','gpuSamples','cameraMode','boatType','renderQuality'];
+    const report={capturedAt:new Date().toISOString(),view:focus,viewport:{width:innerWidth,height:innerHeight,pixelRatio:devicePixelRatio},
+      frameTiming:root?.dataset.frameTiming?JSON.parse(root.dataset.frameTiming):null,
+      metrics:Object.fromEntries(fields.map(key=>[key,root?.dataset[key]??null])),
+      notes:'Rolling window of up to 600 frames. Counts cover main and underwater passes; shadow work is not separately counted. Compare identical camera, quality and viewport after warm-up.'};
+    const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));
+    const link=document.createElement('a');link.href=url;link.download=`port-performance-${focus}.json`;link.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+
+  return <aside className="capture-tools" aria-label="Scene capture">
     <label>Capture view <select aria-label="Capture view" value={focus} disabled={recording} onChange={event => onFocus?.(event.target.value)}>
       <option value="scene">Scene</option>
       <option value="gate">Malai Vasal</option>
       <option value="gate-detail">Gate details</option>
       <option value="boat">Boat details</option>
+      <option value="traveler">Traveler portrait</option>
+      <option value="traveler-side">Traveler side</option>
+      <option value="traveler-back">Traveler back</option>
       <option value="manta">Manta ray</option>
       <option value="shark">Reef shark</option>
+      <option value="adiyogi">Adiyogi Island</option>
       <option value="foliage">Trees and wind</option>
     </select></label>
     <select aria-label="Clip duration" value={duration} disabled={recording} onChange={event => setDuration(Number(event.target.value))}>
       <option value={12}>12 seconds</option>
       <option value={20}>20 seconds</option>
     </select>
+    <button onClick={()=>{ window.dispatchEvent(new Event("port:reset-performance")); const root=document.querySelector("main.app"); if(root)delete root.dataset.frameTiming; }}>Reset performance sample</button>
+    <button onClick={onRehearseDiscovery}>Rehearse dock discovery</button>
+    <button onClick={()=>onRehearse(false)}>Rehearse gate crossing</button>
+      <button onClick={()=>onRehearse(true)}>Rehearse quiet overlook</button>
+      <button onClick={onEndRehearsal}>End rehearsal</button>
+      <button onClick={downloadPerformance}>Download performance snapshot</button>
     <button onClick={start} disabled={recording}>{recording ? `Recording ${duration} seconds…` : "Record scene clip"}</button>
     {recording && <button onClick={() => capture.current?.recorder.stop()}>Stop recording</button>}
     {clip && <a href={clip} download="port-scene.webm">Download scene clip</a>}
-    {clip && <button onClick={save}>Save local clip</button>}
+    {clip && import.meta.env.DEV && <button onClick={save}>Save local clip</button>}
     {saved && <span role="status">Saved {saved}</span>}
     {error && <span role="status">{error}</span>}
   </aside>;

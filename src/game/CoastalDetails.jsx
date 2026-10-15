@@ -10,10 +10,11 @@ function makeDetails() {
   let seed = 92831;
   const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
   const vertices = [], colors = [], indices = [];
-  const dark = new THREE.Color('#467c62'), light = new THREE.Color('#a4b87b');
+  const dark = new THREE.Color('#388f50'), light = new THREE.Color('#aed16f');
   for (let sample = 0; sample < 950; sample++) {
     const x = (random() - 0.5) * 21, z = (random() - 0.5) * 14;
-    if (islandCover(x, z) < 0.25 + random() * 0.5) continue;
+    const wallShoulder = Math.abs(x)>2.5 && Math.abs(x)<8.2 && Math.abs(z)>1 && Math.abs(z)<1.5;
+    if (islandCover(x, z) < 0.25 + random() * 0.5 && !wallShoulder) continue;
     // Keep masonry and side doors free of vegetation.
     if (Math.abs(z) < 0.9 && Math.abs(x) < 8.7) continue;
     const y = gateGround(x, z) - 0.035;
@@ -56,7 +57,7 @@ function makeDetails() {
     geometry.scale(s, s*(0.48+random()*0.25),s*0.75);
     geometry.rotateY(random()*6.28); geometry.translate(x,gateGround(x,z)+s*0.19,z);
     const p=geometry.attributes.position,c=[];
-    const stone=new THREE.Color(i%2?'#c4c6a1':'#b1bd9d');
+    const stone=new THREE.Color(i%2?'#ccd09d':'#aabd89');
     for(let v=0;v<p.count;v++){const shade=0.91+random()*0.14;c.push(stone.r*shade,stone.g*shade,stone.b*shade);}
     geometry.setAttribute('color',new THREE.Float32BufferAttribute(c,3)); rocks.push(geometry);
   }
@@ -68,6 +69,6 @@ export default function CoastalDetails() {
   useEffect(()=>()=>Object.values(data).forEach(g=>g.dispose()),[data]);
   return <group name="Dune grass and weathered coastal outcrops">
     <mesh geometry={data.grass} receiveShadow><meshStandardMaterial vertexColors side={THREE.DoubleSide} roughness={1}/></mesh>
-    <mesh geometry={data.stone} castShadow receiveShadow><meshStandardMaterial vertexColors roughness={0.94} flatShading/></mesh>
+    <mesh geometry={data.stone} userData={{ crabSurface: true }} castShadow receiveShadow><meshStandardMaterial vertexColors roughness={0.94} flatShading/></mesh>
   </group>;
 }

@@ -1,3 +1,4 @@
+import { stoneNodes, coralEmission } from './rendering/SurfaceNodes.js';
 import { useMemo, useRef, useLayoutEffect, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import {
@@ -513,6 +514,7 @@ function Instances({ geometry, data, roughness = 1, bumpMap, opacity = 1, map, c
         roughness={roughness}
         emissive="#ffffff"
         emissiveIntensity={map ? 0 : fill}
+        {...(stoneField ? stoneNodes(stoneField.uniforms) : { emissiveNode: coralEmission(Boolean(geometry.attributes.color)) })}
         onBeforeCompile={stoneField ? (shader) => tintReefStone(shader, stoneField) : tintCoralFill}
         customProgramCacheKey={() => stoneField ? "reef-stone-sediment-v1" : "reef-coral-fill-v1"}
         transparent={opacity < 1}

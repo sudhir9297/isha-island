@@ -8,7 +8,11 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "node --test src/game/*.test.js"
+    "test": "node --test src/game/*.test.js",
+    "assets:audit": "node scripts/audit-assets.mjs",
+    "assets:check": "npm run assets:audit && node --test scripts/lib/*.test.mjs src/game/MalaiVasalAsset.test.js src/game/TravelerAsset.test.js",
+    "assets:compress": "node scripts/compress-assets.mjs",
+    "shaders:generate": "node scripts/migrate-render-shaders.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
@@ -18,9 +22,12 @@
     "three": "^0.186.1"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "meshoptimizer": "^1.3.0",
     "oxlint": "^1.81.0",
     "vite": "^8.3.0"
   }

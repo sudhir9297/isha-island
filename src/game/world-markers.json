@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "space": "game-world-y-up",
+  "markers": {
+    "spawn": [-13, 0, -4],
+    "gateEntry": [0, 2.35, -11.4],
+    "gateExit": [0, 2.35, -12.7],
+    "gateCamera": [0, 3.35, -12],
+    "gateDetailCamera": [0, 5.55, -12],
+    "luggageOrigin": [0, 0, -12.7],
+    "luggage0": [-0.65, 0, -10.05],
+    "luggage1": [0.65, 0, -9.9],
+    "luggage2": [-0.28, 0, -9.45],
+    "luggage3": [0.3, 0, -8.95]
+  }
+}

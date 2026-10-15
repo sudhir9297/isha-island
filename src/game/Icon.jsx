@@ -25,6 +25,7 @@ export default function Icon({ name, ...props }) {
         <circle cx="16" cy="17" r="2" />
       </>
     ),
+    controls: <><path d="M7 7h10c3 0 5 9 3 11-1 1-3-2-4-3H8c-1 1-3 4-4 3-2-2 0-11 3-11Z" /><path d="M7 10v4M5 12h4M16 11h.01M18 13h.01" /></>,
     close: <path d="m6 6 12 12M18 6 6 18" />,
     sound: (
       <>

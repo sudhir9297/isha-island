@@ -1,13 +1,14 @@
+import { ADIYOGI_ISLAND, adiyogiShoreRadius } from "./AdiyogiTerrain.js";
 import { PLACES } from "./Places";
 
 export default function AtollMap({ boat, found, onSelect }) {
-  const x = Math.max(-25, Math.min(25, boat.x)),
-    z = Math.max(-32, Math.min(25, boat.z));
+  const x = boat.x,
+    z = boat.z;
   return (
     <svg
       className="atoll-map"
-      viewBox="-28 -35 56 64"
-      aria-label="Map of the atoll and your boat"
+      viewBox="-30 -120 205 150"
+      aria-label="Map of Malai Vasal and Adiyogi islands and your boat"
       role="group"
     >
       <defs>
@@ -16,7 +17,13 @@ export default function AtollMap({ boat, found, onSelect }) {
           <stop offset="100%" stopColor="#206c70" />
         </radialGradient>
       </defs>
-      <rect x="-28" y="-35" width="56" height="64" rx="2" fill="#115965" />
+      <ellipse cx={ADIYOGI_ISLAND.x} cy={ADIYOGI_ISLAND.z} rx="35" ry="27" fill="url(#shelf)" />
+      <path d={Array.from({length: 96}, (_, i) => {
+        const a = i / 96 * Math.PI * 2, r = adiyogiShoreRadius(a);
+        return `${i ? 'L' : 'M'}${ADIYOGI_ISLAND.x + Math.cos(a) * ADIYOGI_ISLAND.radiusX * r},${ADIYOGI_ISLAND.z + Math.sin(a) * ADIYOGI_ISLAND.radiusZ * r}`;
+      }).join(' ') + 'Z'} fill="#e5ce8c" />
+      <text x={ADIYOGI_ISLAND.x} y={ADIYOGI_ISLAND.z - 1} textAnchor="middle" fill="#516b53" fontSize="3">Adiyogi Island</text>
+      <text x="0" y="-26" textAnchor="middle" fill="#e9e3c3" fontSize="2.6">Malai Vasal</text>
       <ellipse cx="0" cy="-12" rx="18" ry="15" fill="url(#shelf)" />
       <path
         d="M-12-12Q-13-20-6-21Q4-24 11-17Q14-8 7-4Q0 0-9-5Z"
@@ -32,7 +39,7 @@ export default function AtollMap({ boat, found, onSelect }) {
           tabIndex="0"
           aria-label={place.name}
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") onSelect(place.id);
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(place.id); }
           }}
           className="map-pin"
           transform={`translate(${place.position[0]},${place.position[2]})`}
@@ -46,7 +53,7 @@ export default function AtollMap({ boat, found, onSelect }) {
           <text y=".5" textAnchor="middle" fontSize="1.4" fill="#164a48">
             {found.includes(place.id) ? "✓" : "·"}
           </text>
-          <text y="3.3" textAnchor="middle" fontSize="1.6" fill="#e9e3c3">
+          <text y="3.3" textAnchor="middle" fontSize="2.2" fill="#e9e3c3">
             {place.name}
           </text>
         </g>
@@ -57,7 +64,7 @@ export default function AtollMap({ boat, found, onSelect }) {
         <circle r="2" fill="none" stroke="#fff5d0" strokeWidth=".2" />
         <path d="m0-1.3 .7 2-1.4 0Z" fill="#fff5d0" />
       </g>
-      <text x="-24" y="-29" fill="#d5d4b1" fontSize="2">
+      <text x="-24" y="-67" fill="#d5d4b1" fontSize="2">
         N ↑
       </text>
     </svg>

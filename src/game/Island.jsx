@@ -10,8 +10,10 @@ import { createBeachWetting, BEACH_WETTING_KEY } from "./BeachWetting.js";
 import CoastalDetails from "./CoastalDetails.jsx";
 import { islandCover } from "./IslandHabitat.js";
 import MalaiVasal from "./MalaiVasal.jsx";
+import GateThreshold from "./GateThreshold.jsx";
 import { gateGround } from "./MalaiVasalGeometry.js";
 import { GATE, gateTerrainHeight } from "./GateTerrain.js";
+import { DOCK } from './WalkingSurface.js';
 
 const CENTER_Z = -12;
 const TAU = Math.PI * 2;
@@ -72,7 +74,7 @@ function makeSand() {
     sites = sandGroundingSites();
   const base = new THREE.Color(ISLAND_SAND_PALETTE.dry),
     wet = new THREE.Color(ISLAND_SAND_PALETTE.wet),
-    groundCover = new THREE.Color("#79a66e");
+    groundCover = new THREE.Color("#79b45c");
   for (let j = 0; j <= radial; j++)
     for (let i = 0; i <= segments; i++) {
       const r = (j / radial) * 1.08,
@@ -241,8 +243,8 @@ function makeLeaf(length, width, lift, droop, seed = 1) {
     col = new THREE.Color(),
     rnd = random(seed);
   const leafFamily = Math.abs(seed) % 5;
-  const leafLights = ["#9acb82", "#81bc78", "#64a977", "#96c47a", "#73b794"];
-  const leafDarks = ["#44845d", "#397d60", "#306d56", "#4d8c64", "#3c8167"];
+  const leafLights = ["#a6d96b", "#83ce60", "#58ba6b", "#a3d467", "#64c58a"];
+  const leafDarks = ["#33894b", "#288554", "#236f49", "#40964e", "#2a8b58"];
   const light = new THREE.Color(leafLights[leafFamily]),
     dark = new THREE.Color(leafDarks[leafFamily]);
   const shoulder = THREE.MathUtils.clamp(0.34 + rnd() * 0.17 + [0.025, -0.1, 0.015, -0.05, -0.01][leafFamily], 0.25, 0.54);
@@ -383,8 +385,8 @@ function frondCenter(t, length, lift, droop, sway) {
 
 function makePalmFrond(length, width, lift, droop, sway, seed) {
   const positions = [], colors = [], thinness = [], surface = [], indices = [], rnd = random(seed);
-  const light = new THREE.Color(seed % 2 ? "#92c681" : "#80b979");
-  const dark = new THREE.Color(seed % 3 ? "#427e59" : "#397456");
+  const light = new THREE.Color(seed % 2 ? "#a1d969" : "#7dce61");
+  const dark = new THREE.Color(seed % 3 ? "#358b48" : "#287d48");
   const tone = 0.42 + rnd() * 0.31;
   const roll = (rnd() - 0.5) * 1.02;
   const shoulder = 0.28 + rnd() * 0.18;
@@ -520,22 +522,22 @@ function Palm({ position, height = 5, lean = 0.8, seed = 1, scale = 1 }) {
   return (
     <group ref={windRoot} position={position} scale={scale}>
       <mesh geometry={data.trunk} castShadow receiveShadow {...wind.mesh}>
-        <meshStandardMaterial color="#9c8563" roughness={1} onBeforeCompile={wind.shader} customProgramCacheKey={wind.key} />
+        <meshStandardMaterial color="#ac8758" roughness={1} {...wind.nodes} onBeforeCompile={wind.shader} customProgramCacheKey={wind.key} />
       </mesh>
       <mesh geometry={data.rings} castShadow {...wind.mesh}>
-        <meshStandardMaterial color="#75684f" onBeforeCompile={wind.shader} customProgramCacheKey={wind.key} />
+        <meshStandardMaterial color="#826b45" {...wind.nodes} onBeforeCompile={wind.shader} customProgramCacheKey={wind.key} />
       </mesh>
       <mesh geometry={data.leaves} castShadow receiveShadow {...wind.leafMesh}>
         <meshStandardMaterial
           vertexColors
           side={THREE.DoubleSide}
           roughness={0.71}
-          onBeforeCompile={wind.leafShader}
+          {...wind.leafNodes} onBeforeCompile={wind.leafShader}
           customProgramCacheKey={wind.leafKey}
         />
       </mesh>
       <mesh geometry={data.stems} {...wind.leafMesh}>
-        <meshStandardMaterial color="#7caa71" roughness={0.82} onBeforeCompile={wind.stemShader} customProgramCacheKey={wind.stemKey} />
+        <meshStandardMaterial color="#7cbd59" roughness={0.82} {...wind.stemNodes} onBeforeCompile={wind.stemShader} customProgramCacheKey={wind.stemKey} />
       </mesh>
       {[0, 1, 2].map((i) => (
         <mesh
@@ -549,7 +551,7 @@ function Palm({ position, height = 5, lean = 0.8, seed = 1, scale = 1 }) {
           {...wind.mesh}
         >
           <sphereGeometry args={[0.19, 9, 6]} />
-          <meshStandardMaterial color={i % 2 ? "#7e6a33" : "#887437"} onBeforeCompile={wind.shader} customProgramCacheKey={wind.key} />
+          <meshStandardMaterial color={i % 2 ? "#7e6a33" : "#887437"} {...wind.nodes} onBeforeCompile={wind.shader} customProgramCacheKey={wind.key} />
         </mesh>
       ))}
     </group>
@@ -666,7 +668,7 @@ function PlantBed({ position, scale = 1, seed = 1, flowers = true, composition }
     if (flowers) blooms.forEach(([x, y, z, size, form], i) => {
       if (form === 2) {
         // Closed buds break up the repeated open-flower silhouette.
-        const bud = addColors(new THREE.SphereGeometry(1, 10, 8), "#d78368");
+        const bud = addColors(new THREE.SphereGeometry(1, 10, 8), "#e58965");
         bud.deleteAttribute("uv");
         bud.scale(0.105 * size, 0.19 * size, 0.1 * size);
         bud.rotateZ(-0.22);
@@ -683,7 +685,7 @@ function PlantBed({ position, scale = 1, seed = 1, flowers = true, composition }
           (form === 1 ? 0.29 : 0.32) * size * (0.94 + petalRandom() * 0.13),
           (form === 1 ? 0.105 : 0.15) * size * (0.94 + petalRandom() * 0.14),
           (form === 1 ? 0.075 : 0.13) * size * (0.82 + petalRandom() * 0.3),
-          form === 1 ? "#fff1cf" : i % 2 ? "#f0be95" : "#e6a482",
+          form === 1 ? "#fff1cf" : i % 2 ? "#f7b981" : "#ef9e71",
           petalSeed,
         );
         g.rotateY(a + (form === 1 ? 0.2 : 0));
@@ -710,10 +712,10 @@ function PlantBed({ position, scale = 1, seed = 1, flowers = true, composition }
   return (
     <group ref={windRoot} position={position} scale={scale}>
       <mesh geometry={geometries.leaves} castShadow receiveShadow {...wind.leafMesh}>
-        <meshStandardMaterial vertexColors side={THREE.DoubleSide} roughness={0.74} onBeforeCompile={wind.leafShader} customProgramCacheKey={wind.leafKey} />
+        <meshStandardMaterial vertexColors side={THREE.DoubleSide} roughness={0.74} {...wind.leafNodes} onBeforeCompile={wind.leafShader} customProgramCacheKey={wind.leafKey} />
       </mesh>
-      {geometries.petals && <mesh geometry={geometries.petals} castShadow receiveShadow {...wind.mesh}><meshStandardMaterial vertexColors side={THREE.DoubleSide} roughness={0.84} onBeforeCompile={wind.shader} customProgramCacheKey={wind.key} /></mesh>}
-      {geometries.cores && <mesh geometry={geometries.cores} receiveShadow {...wind.mesh}><meshStandardMaterial vertexColors roughness={0.82} onBeforeCompile={wind.shader} customProgramCacheKey={wind.key} /></mesh>}
+      {geometries.petals && <mesh geometry={geometries.petals} castShadow receiveShadow {...wind.mesh}><meshStandardMaterial vertexColors side={THREE.DoubleSide} roughness={0.84} {...wind.nodes} onBeforeCompile={wind.shader} customProgramCacheKey={wind.key} /></mesh>}
+      {geometries.cores && <mesh geometry={geometries.cores} receiveShadow {...wind.mesh}><meshStandardMaterial vertexColors roughness={0.82} {...wind.nodes} onBeforeCompile={wind.shader} customProgramCacheKey={wind.key} /></mesh>}
     </group>
   );
 }
@@ -757,17 +759,17 @@ function Broadleaf({ position, scale = 1, seed = 1 }) {
     <group ref={windRoot} position={position} scale={scale}>
       <mesh position={[0, 1, 0]} castShadow {...wind.mesh}>
         <cylinderGeometry args={[0.09, 0.15, 2, 7]} />
-        <meshStandardMaterial color="#746246" onBeforeCompile={wind.shader} customProgramCacheKey={wind.key} />
+        <meshStandardMaterial color="#746246" {...wind.nodes} onBeforeCompile={wind.shader} customProgramCacheKey={wind.key} />
       </mesh>
       <mesh geometry={data.branches} castShadow {...wind.mesh}>
-        <meshStandardMaterial color="#716443" onBeforeCompile={wind.shader} customProgramCacheKey={wind.key} />
+        <meshStandardMaterial color="#716443" {...wind.nodes} onBeforeCompile={wind.shader} customProgramCacheKey={wind.key} />
       </mesh>
       <mesh geometry={data.leaves} castShadow={seed % 3 === 2} receiveShadow {...wind.leafMesh}>
         <meshStandardMaterial
           vertexColors
           side={THREE.DoubleSide}
           roughness={0.74}
-          onBeforeCompile={wind.leafShader}
+          {...wind.leafNodes} onBeforeCompile={wind.leafShader}
           customProgramCacheKey={wind.leafKey}
         />
       </mesh>
@@ -793,37 +795,6 @@ function Rope({ points }) {
     </mesh>
   );
 }
-function Lantern({ position }) {
-  return (
-    <group position={position}>
-      <mesh position={[0, 0.02, 0]}>
-        <boxGeometry args={[0.19, 0.26, 0.19]} />
-        <meshStandardMaterial
-          color="#ffd77a"
-          emissive="#ffbf47"
-          emissiveIntensity={0.22}
-        />
-      </mesh>
-      <mesh position={[0, 0.19, 0]} castShadow>
-        <coneGeometry args={[0.19, 0.16, 4]} />
-        <meshStandardMaterial color="#514a31" />
-      </mesh>
-      <mesh position={[0, -0.14, 0]}>
-        <boxGeometry args={[0.24, 0.045, 0.24]} />
-        <meshStandardMaterial color="#514a31" />
-      </mesh>
-      {[-1, 1].flatMap((x) =>
-        [-1, 1].map((z) => (
-          <mesh key={`${x}${z}`} position={[x * 0.1, 0.025, z * 0.1]}>
-            <boxGeometry args={[0.027, 0.29, 0.027]} />
-            <meshStandardMaterial color="#514a31" />
-          </mesh>
-        )),
-      )}
-    </group>
-  );
-}
-
 function harborTimberGeometry(width, height, depth, color, bevel = 0.012) {
   const geometry = new RoundedBoxGeometry(width, height, depth, 1, bevel);
   const positions = geometry.attributes.position, uv = geometry.attributes.uv;
@@ -870,9 +841,9 @@ function Pier({ wood }) {
     return joined(planks);
   }, []);
   return (
-    <group position={[7, 0, 7.15]} rotation={[0, -0.16, 0]}>
+    <group position={[DOCK.x, 0, DOCK.z - CENTER_Z]} rotation={[0, DOCK.rotation, 0]}>
       {/* The pier extends beyond the south shoreline. */}
-      <mesh geometry={deck} receiveShadow castShadow>
+      <mesh geometry={deck} userData={{ crabSurface: true }} receiveShadow castShadow>
         <meshStandardMaterial vertexColors map={wood} roughness={0.51} bumpMap={wood} bumpScale={0.018} />
       </mesh>
       {[-1, 1].map((x) => (
@@ -882,7 +853,7 @@ function Pier({ wood }) {
         </mesh>
       ))}
       {[-1, 1].flatMap((side) =>
-        [0, 2.2, 4.4, 6.2].map((z, i) => (
+        [0, 2.2, 4.4, 6.2].map((z) => (
           <group key={`${side}${z}`} position={[side * 1.12, 0, z]}>
             <mesh position={[0, 0.4, 0]} castShadow>
               <cylinderGeometry args={[0.105, 0.12, 1.6, 8]} />
@@ -891,11 +862,6 @@ function Pier({ wood }) {
             <mesh position={[0, 1.21, 0]}>
               <cylinderGeometry args={[0.14, 0.14, 0.07, 8]} />
               <meshStandardMaterial color="#c6a56b" roughness={0.63} />
-            </mesh>
-            {i % 2 === 0 && <Lantern position={[0, 1.45, 0]} />}
-            <mesh position={[0, 0.88, 0]} rotation={[Math.PI / 2, 0, 0]}>
-              <torusGeometry args={[0.115, 0.035, 5, 10]} />
-              <meshStandardMaterial color="#d8c293" />
             </mesh>
           </group>
         )),
@@ -912,14 +878,6 @@ function Pier({ wood }) {
           />
         )),
       )}
-      <mesh position={[0.6, 0.65, 5.75]} rotation={[-Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.29, 0.055, 6, 22]} />
-        <meshStandardMaterial color="#dfc996" />
-      </mesh>
-      <mesh position={[-0.56, 0.66, 4.9]} rotation={[0, 0.12, 0]}>
-        <boxGeometry args={[0.6, 0.16, 0.4]} />
-        <meshStandardMaterial color="#448a79" />
-      </mesh>
     </group>
   );
 }
@@ -944,7 +902,7 @@ function BeachDetails() {
       {specs.map((s, i) => (
         <group key={i} position={[s.x, 0.2, s.z]} rotation={[0, s.a, 0]}>
           {s.kind === 0 ? (
-            <mesh scale={[1.4, 0.6, 1]} castShadow>
+            <mesh scale={[1.4, 0.6, 1]} userData={{ crabSurface: true }} castShadow>
               <icosahedronGeometry args={[s.size, 0]} />
               <meshStandardMaterial
                 color={i % 2 ? "#a9a694" : "#dad3b8"}
@@ -976,7 +934,7 @@ function GateGrove() {
       <Broadleaf position={[x, y, z]} scale={(side < 0 ? 1.16 : 0.78) + i * 0.06} seed={1640 + i * 77 + side} />
       <PlantBed position={[x, y, z]} scale={0.85} seed={2840 + i * 71 + side} flowers={false} />
       <mesh position={[x, y + 0.18, z]} scale={[0.83, 0.4, 0.68]} castShadow receiveShadow>
-        <icosahedronGeometry args={[1, 1]} /><meshStandardMaterial color="#b1bd9d" roughness={0.93} flatShading />
+        <icosahedronGeometry args={[1, 1]} /><meshStandardMaterial color="#aabd89" roughness={0.93} flatShading />
       </mesh>
     </group>;
   }));
@@ -1028,14 +986,15 @@ export default function Island() {
           depthWrite
           emissive="#c8c6bd"
           emissiveIntensity={0.025}
-          onBeforeCompile={beachWetting.apply}
+          {...beachWetting.nodes} onBeforeCompile={beachWetting.apply}
           customProgramCacheKey={() => BEACH_WETTING_KEY}
         />
       </mesh>
       <MalaiVasal />
+      <GateThreshold />
       <CoastalDetails />
       {/* Small trees frame the rear path without filling the central passage. */}
-      {[[-3.2, -3.6, 0.85], [3.1, -5.8, 0.8]].map(([x, z, scale], i) =>
+      {[[-3.8, -3.5, 0.78], [3.8, -5.4, 0.72]].map(([x, z, scale], i) =>
         <Broadleaf key={`path-tree-${i}`} position={[x, gateGround(x, z), z]} scale={scale} seed={5862 + i * 113} />)}
       <GateGrove />
       <Pier wood={wood} />
@@ -1051,6 +1010,7 @@ export default function Island() {
       ].map(([x, y, z, sx, sy, sz], i) => (
         <mesh
           key={`rock${i}`}
+          userData={{ crabSurface: true }}
           position={[x, gateTerrainHeight(x, z, y), z]}
           scale={[sx, sy, sz]}
           rotation={[0.12, i * 1.1, 0.05]}
@@ -1060,7 +1020,7 @@ export default function Island() {
           <icosahedronGeometry args={[1, 1]} />
           <meshStandardMaterial
             color={
-              i % 3 === 0 ? "#c3c49d" : i % 3 === 1 ? "#a9b597" : "#d8cda8"
+              i % 3 === 0 ? "#cccd9b" : i % 3 === 1 ? "#acbe91" : "#e0cc9a"
             }
             roughness={0.76}
             flatShading

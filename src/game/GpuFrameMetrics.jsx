@@ -7,6 +7,11 @@ export default function GpuFrameMetrics() {
   const renderer = useThree(state => state.gl);
   const timer = useRef(null);
   useEffect(() => {
+    if (renderer.isWebGPURenderer) {
+      const root = document.querySelector('main.app');
+      if (root) root.dataset.gpuTiming = 'unavailable';
+      return;
+    }
     const context = renderer.getContext();
     const extension = context.getExtension("EXT_disjoint_timer_query_webgl2");
     const root = document.querySelector("main.app");

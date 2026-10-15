@@ -1,4 +1,5 @@
-export const START = { x: -13, z: -4, heading: -1.88 };
+import { WORLD_MARKERS } from "./WorldMarkers.js";
+export const START = { x: WORLD_MARKERS.spawn[0], z: WORLD_MARKERS.spawn[2], heading: -1.88 };
 export const CAMERA_OFFSET = [-12, 30, 24];
 export const CAMERA_VIEW_HEIGHT = 26;
 export const BOAT_SCALE = 0.88;

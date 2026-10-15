@@ -7,15 +7,20 @@ export default function useInput(paused) {
     left: false,
     right: false,
     brake: false,
+    run: false,
+    jumpRequested: false,
+    interact: false,
   });
   const setControl = useCallback(
     (key, active) => {
+      if (key === 'brake' && active && !paused && !input.current.brake) input.current.jumpRequested = true;
       if (key in input.current) input.current[key] = active && !paused;
     },
     [paused],
   );
   useEffect(() => {
     const bindings = {
+      KeyE: "interact",
       KeyW: "forward",
       ArrowUp: "forward",
       KeyS: "backward",
@@ -25,6 +30,8 @@ export default function useInput(paused) {
       KeyD: "right",
       ArrowRight: "right",
       Space: "brake",
+      ShiftLeft: "run",
+      ShiftRight: "run",
     };
     const clear = () => {
       for (const key of Object.keys(input.current)) input.current[key] = false;
@@ -40,6 +47,7 @@ export default function useInput(paused) {
       const key = bindings[e.code];
       if (!key) return;
       e.preventDefault();
+      if (key === 'brake' && e.type === 'keydown' && !e.repeat) input.current.jumpRequested = true;
       input.current[key] = e.type === "keydown" && !paused;
     };
     const visibility = () => {

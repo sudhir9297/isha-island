@@ -76,3 +76,26 @@ test("source geometry remains finite and the island placement does not mutate ca
   assert.equal(ray.intersectObject(placed, true).length, 0, "the central boat-to-portal route remains open");
   disposeGateAsset(placed);
 });
+
+test('static gate geometry is shared and disposal owns only deformed buffers', (t) => {
+  const {scene} = readAssetGeometry();
+  const placed = placeGateAsset(scene);
+  let cachedDisposals=0,privateDisposals=0,shared=0,privateCount=0;
+  const cached=new Set();
+  scene.traverse(o=>{if(o.isMesh){cached.add(o.geometry);o.geometry.addEventListener('dispose',()=>cachedDisposals++);}});
+  placed.traverse(o=>{
+    if(!o.isMesh)return;
+    if(cached.has(o.geometry))shared++;
+    else {privateCount++;o.geometry.addEventListener('dispose',()=>privateDisposals++);}
+  });
+  assert.ok(shared>0 && privateCount>0);
+  const sharedBuffers=new Set();
+  placed.traverse(o=>{if(o.isMesh && cached.has(o.geometry)){
+    for(const attribute of Object.values(o.geometry.attributes))sharedBuffers.add(attribute.array.buffer);
+    if(o.geometry.index)sharedBuffers.add(o.geometry.index.array.buffer);
+  }});
+  t.diagnostic(`Avoided static geometry buffer copies: ${[...sharedBuffers].reduce((sum,b)=>sum+b.byteLength,0)} bytes across ${shared} primitives`);
+  disposeGateAsset(placed);disposeGateAsset(placed);
+  assert.equal(cachedDisposals,0);
+  assert.equal(privateDisposals,privateCount);
+});

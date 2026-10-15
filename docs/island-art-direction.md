@@ -33,3 +33,6 @@ The water shader now renders a broken white swash crest moving across actual sha
 
 ## Boat beaching
 Fast coastal contact (over 2.8 world units/s) now preserves planar momentum instead of applying the old ellipse barrier. The hull follows the sand slope; uphill work, sand friction, and decaying yaw bring it to rest. Propulsion is disabled while grounded. Dock and reef contacts remain solid. Grounding starts a five-second simulation-time recovery timer, and R or Reset to water restores the last clear-water position with velocity and navigation cleared. Pausing freezes the timer. No new render passes or geometry are required.
+
+## Traveler and luggage refinement
+Travel silhouettes reference Osprey's Farpoint 40 travel pack (https://www.osprey.com/farpointtm-40-travel-pack-1), Away's carry-on (https://www.awaytravel.com/products/carry-on-jet-black), and weekender duffels (https://www.awaytravel.com/collections/duffle-bags). The scene uses original unbranded procedural models: terracotta ribbed carry-on, sage backpack with compression straps and bottle pocket, ochre canvas duffel, and small indigo satchel. Hand luggage follows the articulated hands; backpack and satchel follow the torso. Gait blends actual traveled distance with knee flexion, shoulder sway, smooth turning and start/stop easing. No downloaded models or textures were added.

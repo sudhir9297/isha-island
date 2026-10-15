@@ -1,10 +1,12 @@
-import { memo, useEffect, useMemo, useRef } from "react";
+import { hullFill } from './rendering/SurfaceNodes.js';
+import NodeShaderMaterial from './rendering/NodeShaderMaterial.jsx';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import { navigationControls, stepBoatFrame } from "./BoatPhysics";
-import { createFoamTexture, foamVertex, foamFragment } from "./BoatFoam";
-import { surfaceVertex, surfaceFragment } from "./BoatSurface";
+import { createFoamTexture } from "./BoatFoam";
+import { prepareWakeInstances, visitLiveWake, commitWakeInstances } from "./WakeInstances.js";
 import { createTeakTexture } from "./TeakTexture";
 import { BOAT_SCALE } from "./WorldConfig";
 import { sampleOceanSurface } from "./WaterOptics";
@@ -261,7 +263,7 @@ const BoatModel = memo(function BoatModel({ modelRef, motorRef, propellerRef, fl
       <mesh geometry={data.hull} castShadow receiveShadow>
         <meshPhysicalMaterial
           vertexColors
-          onBeforeCompile={fillHullSide}
+          emissiveNode={hullFill} onBeforeCompile={fillHullSide}
           emissive={CREAM}
           emissiveIntensity={0.055}
           roughness={0.37}
@@ -586,6 +588,7 @@ const Wake = memo(function Wake({ boatState, paused }) {
     foam.geometry.dispose();
     foam.uniforms.uFoam.value.dispose();
   }, [foam]);
+  useLayoutEffect(() => prepareWakeInstances(foamRef.current), [foam]);
   const dataRef = useRef({
       particles: Array.from({ length: FOAM_COUNT }, () => ({
         x: 0, z: 0, dx: 0, dz: 0, age: 100, life: 1,
@@ -685,49 +688,38 @@ const Wake = memo(function Wake({ boatState, paused }) {
     data.previous.copy(state.position);
     const fades = foamRef.current.geometry.attributes.instanceFade;
     const seeds = foamRef.current.geometry.attributes.instanceSeed;
-    for (let i = 0; i < data.particles.length; i++) {
-      const p = data.particles[i];
-      p.age += dt;
-      if (p.age < p.life) {
-        // Surface motion spreads sideways and loses momentum, without rising.
-        const surfaceDt = Math.min(dt, p.age);
-        const drag = Math.exp(-surfaceDt * 0.62);
-        p.dx *= drag;
-        p.dz *= drag;
-        p.x += p.dx * surfaceDt;
-        p.z += p.dz * surfaceDt;
-        const fade = 1 - p.age / p.life;
-        const birth = Math.min(1, p.age / 0.065);
-        sampleOceanSurface(p.x, p.z, clock.elapsedTime, data.surface);
-        data.dummy.position.set(p.x, data.surface.height + 0.0045, p.z);
-        data.normal.fromArray(data.surface.normal);
-        data.dummy.quaternion.setFromUnitVectors(data.planeNormal, data.normal);
-        data.dummy.rotateZ(p.rotation + p.age * p.spin);
-        data.dummy.scale.set(
-          p.width * (1 + p.age * p.spread),
-          p.length * (1 + p.age * 0.22), 1,
-        );
-        fades.setX(i, birth * Math.pow(fade, 1.25) * p.opacity);
-      } else {
-        data.dummy.scale.setScalar(0);
-        fades.setX(i, 0);
-      }
+    const activeCount = visitLiveWake(data.particles, dt, (p, i) => {
+      // Surface motion spreads sideways and loses momentum, without rising.
+      const surfaceDt = Math.min(dt, p.age);
+      const drag = Math.exp(-surfaceDt * 0.62);
+      p.dx *= drag;
+      p.dz *= drag;
+      p.x += p.dx * surfaceDt;
+      p.z += p.dz * surfaceDt;
+      const fade = 1 - p.age / p.life;
+      const birth = Math.min(1, p.age / 0.065);
+      sampleOceanSurface(p.x, p.z, clock.elapsedTime, data.surface);
+      data.dummy.position.set(p.x, data.surface.height + 0.0045, p.z);
+      data.normal.fromArray(data.surface.normal);
+      data.dummy.quaternion.setFromUnitVectors(data.planeNormal, data.normal);
+      data.dummy.rotateZ(p.rotation + p.age * p.spin);
+      data.dummy.scale.set(
+        p.width * (1 + p.age * p.spread),
+        p.length * (1 + p.age * 0.22), 1,
+      );
+      fades.setX(i, birth * Math.pow(fade, 1.25) * p.opacity);
       seeds.setX(i, p.seed);
       data.dummy.updateMatrix();
       foamRef.current.setMatrixAt(i, data.dummy.matrix);
-    }
-    foamRef.current.instanceMatrix.needsUpdate = true;
-    fades.needsUpdate = true;
-    seeds.needsUpdate = true;
+    });
+    commitWakeInstances(foamRef.current, activeCount);
   });
   return (
     <group userData={{ seaSurfaceOnly: true }}>
       <group ref={contactRef}>
         <mesh ref={contactGeometryRef} geometry={contactGeometry} rotation={[-Math.PI / 2, 0, 0]} renderOrder={5} frustumCulled={false}>
-          <shaderMaterial
+          <NodeShaderMaterial kind="contact"
             ref={contactMaterial}
-            vertexShader={surfaceVertex}
-            fragmentShader={surfaceFragment}
             uniforms={{ uTime: { value: 0 }, uSpeed: { value: 0 } }}
             transparent depthWrite={false} toneMapped={false}
           />
@@ -739,9 +731,7 @@ const Wake = memo(function Wake({ boatState, paused }) {
         frustumCulled={false}
         renderOrder={6}
       >
-        <shaderMaterial
-          vertexShader={foamVertex}
-          fragmentShader={foamFragment}
+        <NodeShaderMaterial kind="foam"
           uniforms={foam.uniforms}
           transparent depthWrite={false} toneMapped={false}
         />
@@ -801,7 +791,6 @@ export default function Boat({
         heading: state.heading,
         x: state.position.x,
         z: state.position.z,
-        position: state.position.clone(),
       });
     }
   });

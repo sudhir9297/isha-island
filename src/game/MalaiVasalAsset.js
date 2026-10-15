@@ -1,56 +1,72 @@
+import { gateStoneColor } from './rendering/SurfaceNodes.js';
 import { gateGround } from "./MalaiVasalGeometry.js";
 import { GATE } from "./GateTerrain.js";
 
-export const MALAI_VASAL_ASSET = "/models/malai-vasal-day-v2.glb";
+export const MALAI_VASAL_ASSET = "/models/malai-vasal-day-v2-compressed.glb";
 
 // Keep the V2 sculpture, but give it the same sun-washed palette as the island.
-// Baked stone contributes restrained grain rather than its original gray color.
+// Baked stone contributes restrained grain; the crown boulder stays neutral gray.
 function islandMaterial(source) {
   const material = source.clone();
   const name = source.name;
-  let color = "#c8bd99";
+  let color = "#d4c395";
   material.roughness = 0.88;
   material.metalness = 0;
   // The fine protective net in the detailed source aliases at game distance.
   if (/retaining wire/i.test(name)) material.visible = false;
   if (/Source baked/.test(name)) {
-    color = /Boulder/.test(name) ? "#b1bd9d" : "#ded0aa";
+    color = /Boulder/.test(name) ? "#b5b6b8" : "#bdbbb4";
+    material.bumpMap = source.map;
+    material.bumpScale = /Boulder/.test(name) ? 0.045 : 0.025;
     material.onBeforeCompile = (shader) => {
+      shader.vertexShader = "varying float vStoneNormalY;\n" + shader.vertexShader;
+      shader.vertexShader = shader.vertexShader.replace("#include <beginnormal_vertex>", "#include <beginnormal_vertex>\nvStoneNormalY = objectNormal.y;");
+      shader.fragmentShader = "varying float vStoneNormalY;\n" + shader.fragmentShader;
       shader.fragmentShader = shader.fragmentShader.replace("#include <map_fragment>", `
         #ifdef USE_MAP
           vec4 stoneSample = texture2D(map, vMapUv);
           float grain = dot(stoneSample.rgb, vec3(0.2126, 0.7152, 0.0722));
-          diffuseColor.rgb *= mix(0.84, 1.12, smoothstep(0.08, 0.7, grain));
+          diffuseColor.rgb *= mix(0.78, 1.12, smoothstep(0.08, 0.7, grain));
         #endif
+        diffuseColor.rgb *= mix(0.8, 1.0, smoothstep(-0.6, 0.2, vStoneNormalY));
       `);
     };
-    material.customProgramCacheKey = () => "island-stone-grain-v1";
+    material.colorNode = gateStoneColor(material);
+    material.customProgramCacheKey = () => "island-stone-grain-v2";
   } else if (/Laterite brick/.test(name)) {
-    const tones = ["#cd9f79", "#d7ae80", "#c39772", "#d3a47d", "#ddb88c", "#cda780"];
+    const tones = ["#bb805e", "#cf9771", "#b97d60", "#c48a68", "#d5a07c", "#c48c6d"];
     color = tones[Number(name.slice(-1)) % tones.length];
-  } else if (/brick courses/i.test(name)) color = "#cda780";
-  else if (/Brick joints/.test(name)) color = "#a28b68";
+  } else if (/brick courses/i.test(name)) color = "#c48c6d";
+  else if (/Brick joints/.test(name)) color = "#918375";
   else if (/Finial/.test(name)) {
-    color = "#dfb94f";
+    color = "#c9aa62";
     material.metalness = 0.38;
     material.roughness = 0.43;
   } else if (/iron|wire/i.test(name)) {
-    color = /edges/i.test(name) ? "#697b69" : "#3f594f";
+    color = /edges/i.test(name) ? "#666969" : "#353d3e";
     material.metalness = 0.25;
     material.roughness = 0.64;
-  } else if (/cracks/.test(name)) color = "#717867";
-  else if (/chips/.test(name)) color = "#c7c19b";
-  else if (/Granite edge/.test(name)) color = "#b7bd96";
+  } else if (/cracks/.test(name)) color = "#656361";
+  else if (/chips/.test(name)) color = "#d0cec5";
+  else if (/Granite edge/.test(name)) color = "#abaea9";
+  if (/Pale warm granite/.test(name)) color = "#c6c3b9";
   material.color.set(color);
   return material;
 }
 
+const ownedResources = new WeakMap();
+
 export function placeGateAsset(source) {
   const scene = source.clone(true);
+  const geometries = new Set(), materials = new Map();
+  const getMaterial = (sourceMaterial) => {
+    if (!materials.has(sourceMaterial)) materials.set(sourceMaterial, islandMaterial(sourceMaterial));
+    return materials.get(sourceMaterial);
+  };
+  ownedResources.set(scene, { geometries, materials });
   scene.traverse((object) => {
     if (!object.isMesh) return;
-    object.geometry = object.geometry.clone();
-    object.material = Array.isArray(object.material) ? object.material.map(islandMaterial) : islandMaterial(object.material);
+    object.material = Array.isArray(object.material) ? object.material.map(getMaterial) : getMaterial(object.material);
     object.castShadow = true; object.receiveShadow = true;
     // Keep the authored horizontal masonry courses and stepped wall tops.
     // Only extend the buried footings to meet the hill; bending every vertex
@@ -62,6 +78,9 @@ export function placeGateAsset(source) {
       parent = parent.parent;
     }
     if (wing) {
+      // Only deformable wings need private buffers; static sculpture uses the loader cache.
+      object.geometry = object.geometry.clone();
+      geometries.add(object.geometry);
       const p = object.geometry.attributes.position;
       for (let i = 0; i < p.count; i++) {
         const x = p.getX(i), z = p.getZ(i), y = p.getY(i);
@@ -80,9 +99,9 @@ export function placeGateAsset(source) {
   return scene;
 }
 export function disposeGateAsset(scene) {
-  scene.traverse((o) => {
-    if (!o.isMesh) return;
-    o.geometry.dispose();
-    for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.dispose();
-  });
+  const owned = ownedResources.get(scene);
+  if (!owned) return;
+  owned.geometries.forEach(geometry => geometry.dispose());
+  owned.materials.forEach(material => material.dispose());
+  ownedResources.delete(scene);
 }

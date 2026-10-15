@@ -1,0 +1,61 @@
+{
+  "malai-vasal-day-v2.glb": {
+    "maximum": {
+      "bytes": 11500000,
+      "triangles": 204000,
+      "primitiveCount": 19,
+      "materialCount": 19
+    },
+    "nodes": [
+      "MalaiVasal_Boulder",
+      "MalaiVasal_GraniteSupports",
+      "MalaiVasal_Walls",
+      "MalaiVasal_Metalwork",
+      "MalaiVasal_Finial"
+    ]
+  },
+  "sankaran-pillai.glb": {
+    "maximum": {
+      "bytes": 4000000,
+      "triangles": 115000,
+      "primitiveCount": 11,
+      "materialCount": 11
+    },
+    "nodes": [
+      "body",
+      "Dhoti",
+      "Harness",
+      "upper_arm.L",
+      "upper_arm.R",
+      "forearm.L",
+      "forearm.R",
+      "thigh.L",
+      "thigh.R",
+      "shin.L",
+      "shin.R",
+      "foot.L",
+      "foot.R"
+    ],
+    "animations": [
+      "Idle",
+      "Walk",
+      "Seated",
+      "Point"
+    ]
+  },
+  "malai-vasal-day-v2-compressed.glb": {
+    "maximum": {
+      "bytes": 7500000,
+      "triangles": 204000,
+      "primitiveCount": 19,
+      "materialCount": 19
+    },
+    "nodes": [
+      "MalaiVasal_Boulder",
+      "MalaiVasal_GraniteSupports",
+      "MalaiVasal_Walls",
+      "MalaiVasal_Metalwork",
+      "MalaiVasal_Finial"
+    ]
+  }
+}

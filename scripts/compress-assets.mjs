@@ -1,0 +1,11 @@
+import { readFile, writeFile } from 'node:fs/promises';
+import { createIO, sourceURL, compressedURL, enableCompression, verifyCompression } from './lib/gate-compression.mjs';
+const io = await createIO();
+const original = await readFile(sourceURL);
+const document = await io.readBinary(original);
+enableCompression(document);
+const candidate = await io.writeBinary(document);
+await verifyCompression(io, await io.readBinary(original), await io.readBinary(candidate));
+if (candidate.length >= original.length) throw new Error('Compression did not reduce asset size');
+await writeFile(compressedURL, candidate);
+console.log(`Gate: ${original.length} → ${candidate.length} bytes (${(100 * (1 - candidate.length / original.length)).toFixed(1)}% smaller). Decoded content verified.`);

@@ -1,3 +1,4 @@
+import { ADIYOGI_ISLAND } from "./AdiyogiTerrain.js";
 export const PLACES = [
   {
     id: "harbour",
@@ -30,5 +31,12 @@ export const PLACES = [
     subtitle: "Nothing but sea and sky",
     description:
       "Head beyond the shallow shelf, where turquoise water gives way to deep blue. Take a wide turn and draw a trail across the sea.",
+  },
+  {
+    id: "adiyogi",
+    name: "Adiyogi Island",
+    position: [ADIYOGI_ISLAND.x - 29, 0, ADIYOGI_ISLAND.z + 4],
+    subtitle: "Across the channel",
+    description: "A broad, quiet island beyond Malai Vasal. Its open sandy grounds await Adiyogi.",
   },
 ];

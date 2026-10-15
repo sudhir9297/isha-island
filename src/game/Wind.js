@@ -1,3 +1,5 @@
+import { leafSurfaceNodes } from './rendering/LeafNodes.js';
+import { windNodes } from './rendering/WindNodes.js';
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
@@ -145,6 +147,8 @@ export function useIslandWind(height, tipMotion, leafLighting) {
       geometry.userData.windBounds = true;
     };
     return {
+      nodes: windNodes(uniforms), stemNodes: windNodes(uniforms, true),
+      leafNodes: leafLighting ? leafSurfaceNodes(windNodes(uniforms, true)) : windNodes(uniforms, true),
       uniforms, scale: new THREE.Vector3(),
       shader: (shader) => compile(shader),
       leafShader: (shader) => { if (probe !== "raw") leafLighting?.(shader); compile(shader, true); },

@@ -1,3 +1,4 @@
+import { WAVE_FADE_START, WAVE_FADE_END } from "./WaterOptics.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { waterPaths, waterRadiance, waterReceiverRadiance, waterNormal, waterHeight, waterSurfaceRoughness, waterFresnel, waterSunSpecular, WATER_OPTICS_GLSL, DIRECT_ATTENUATION, BACKSCATTER, OCEAN_SEA_LEVEL, OCEAN_WAVE_BANDS, sampleOceanSurface, createCausticField } from "./WaterOptics.js";
@@ -172,8 +173,8 @@ function shaderSurface(x, z, time) {
   dz = fsub(fadd(fsub(fmul(dz,shallow),fmul(fmul(height,ds),bed.slopeZ)),fmul(longDz,swash)),fmul(fmul(longHeight,swashDerivative),bed.slopeZ));
   height = fadd(fmul(height,shallow),fmul(longHeight,swash));
   const fade = p => {
-    const t = Math.max(0, Math.min(1, fdiv(fsub(Math.abs(p), 38), 10)));
-    return [fsub(1, fmul(fmul(t, t), fsub(3, fmul(2, t)))), fmul(fdiv(fmul(fmul(-6, t), fsub(1, t)), 10), Math.sign(p))];
+    const t = Math.max(0, Math.min(1, fdiv(fsub(Math.abs(p), WAVE_FADE_START), WAVE_FADE_END - WAVE_FADE_START)));
+    return [fsub(1, fmul(fmul(t, t), fsub(3, fmul(2, t)))), fmul(fdiv(fmul(fmul(-6, t), fsub(1, t)), WAVE_FADE_END - WAVE_FADE_START), Math.sign(p))];
   };
   const [fx, dfx] = fade(x), [fz, dfz] = fade(z), weight = fmul(fx, fz);
   const dweightX = fmul(dfx, fz);
@@ -182,7 +183,7 @@ function shaderSurface(x, z, time) {
 }
 
 test("float32 shader field agrees with buoyancy through negative cells, shore triangles, and far taper", () => {
-  const points = [[-28, -36], [-12.25, -12.25], [-12.125, -12.125], [12.125, -12.125], [-50, 50], [44.5, -39.25]];
+  const points = [[-28, -36], [-12.25, -12.25], [-12.125, -12.125], [12.125, -12.125], [-50, 50], [44.5, -39.25], [104.5, -39.25], [111, 0], [55, -67], [90, -42]];
   for (let i = 0; i < 240; i++) points.push([f32(-45 + (i * 9.713) % 90), f32(-39 + (i * 13.417) % 87)]);
   let visibleDisplacement = 0;
   for (const [x, z] of points) for (const time of [0, 1.5, 17.7, 140]) {
@@ -191,7 +192,7 @@ test("float32 shader field agrees with buoyancy through negative cells, shore tr
     assert.ok(Math.abs(cpu.slopeX - gpu[1]) < .00015, `X slope mismatch at ${x},${z},${time}`);
     assert.ok(Math.abs(cpu.slopeZ - gpu[2]) < .00015, `Z slope mismatch at ${x},${z},${time}`);
     visibleDisplacement = Math.max(visibleDisplacement, Math.abs(cpu.height - OCEAN_SEA_LEVEL));
-    if (Math.abs(x) >= 48 || Math.abs(z) >= 48 || seabedHeightAt(x, z) >= OCEAN_SEA_LEVEL + .045) {
+    if (Math.abs(x) >= WAVE_FADE_END || Math.abs(z) >= WAVE_FADE_END || seabedHeightAt(x, z) >= OCEAN_SEA_LEVEL + .045) {
       assert.equal(cpu.height, OCEAN_SEA_LEVEL);
       assert.ok(Math.abs(cpu.normal[0]) === 0 && cpu.normal[1] === 1 && Math.abs(cpu.normal[2]) === 0);
     }

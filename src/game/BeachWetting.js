@@ -1,3 +1,4 @@
+import { beachNodes } from './rendering/SurfaceNodes.js';
 import { Vector2, Vector4 } from "three";
 import { createSeabedFieldTexture, SEABED_GRID, SEABED_GLSL, SEABED_MAX_Y } from "./Seabed.js";
 import { SEABED_Y } from "./WorldConfig.js";
@@ -20,6 +21,7 @@ export function createBeachWetting() {
   };
   return {
     uniforms,
+    nodes: beachNodes(uniforms),
     advance(time) { uniforms.uBeachTime.value = time; },
     dispose() { field.dispose(); },
     apply(shader) {

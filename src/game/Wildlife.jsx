@@ -4,6 +4,8 @@ import { DoubleSide, Object3D } from "three";
 import { createWildlife, stepWildlife } from "./WildlifeSimulation.js";
 import { createWildlifeGeometry, deformMantaBody, deformMantaWings, deformShark } from "./WildlifeGeometry.js";
 
+import { prepareMovingInstances, commitMovingInstances } from "./MovingInstances.js";
+
 const SMALL_SPECIES = ["silver", "butterfly", "parrot"];
 
 function WildlifeMaterial() {
@@ -36,7 +38,7 @@ export default function Wildlife({ boatState, seed = 93, terrainRef, wildlifeRef
         root.updateMatrixWorld(true);
         refs.body.setMatrixAt(i, root.matrixWorld); refs.tail.setMatrixAt(i, tail.matrixWorld);
       });
-      refs.body.instanceMatrix.needsUpdate = true; refs.tail.instanceMatrix.needsUpdate = true;
+      commitMovingInstances(refs.body); commitMovingInstances(refs.tail);
     }
     for (const animal of simulation.animals) {
       if (animal.species !== "manta" && animal.species !== "shark") continue;
@@ -67,10 +69,10 @@ export default function Wildlife({ boatState, seed = 93, terrainRef, wildlifeRef
 
   return <group name="ambient-wildlife">
     {SMALL_SPECIES.map((species) => <group key={species} name={`${species}-fish`}>
-      <instancedMesh ref={(mesh) => { (batches.current[species] ??= {}).body = mesh; }} args={[geometry[species].body, null, groups[species].length]} frustumCulled={false}>
+      <instancedMesh ref={(mesh) => { (batches.current[species] ??= {}).body = mesh; prepareMovingInstances(mesh); }} args={[geometry[species].body, null, groups[species].length]}>
         <WildlifeMaterial />
       </instancedMesh>
-      <instancedMesh ref={(mesh) => { (batches.current[species] ??= {}).tail = mesh; }} args={[geometry[species].tail, null, groups[species].length]} frustumCulled={false}>
+      <instancedMesh ref={(mesh) => { (batches.current[species] ??= {}).tail = mesh; prepareMovingInstances(mesh); }} args={[geometry[species].tail, null, groups[species].length]}>
         <WildlifeMaterial />
       </instancedMesh>
     </group>)}

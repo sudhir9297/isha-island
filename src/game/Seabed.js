@@ -1,9 +1,10 @@
 import { BufferGeometry, Float32BufferAttribute, DataTexture, FloatType, RedFormat, NearestFilter, Color } from "three";
+import { ADIYOGI_ISLAND, adiyogiRadiusAt, adiyogiTerrainHeight } from "./AdiyogiTerrain.js";
 import { SEABED_Y } from "./WorldConfig.js";
 
-export const SEABED_GRID = Object.freeze({ x: -28, z: -36, step: 0.25, columns: 209, rows: 193 });
+export const SEABED_GRID = Object.freeze({ x: -28, z: -120, step: 0.25, columns: 829, rows: 529 });
 export const ISLAND_CENTER_Z = -12;
-export const ISLAND_SAND_PALETTE = Object.freeze({ dry: "#f4dfad", wet: "#e1cda4", wetBlend: 0.55 });
+export const ISLAND_SAND_PALETTE = Object.freeze({ dry: "#f9dc99", wet: "#dfbc80", wetBlend: 0.55 });
 export const COAST_SAND_ALBEDO = Object.freeze(new Color(ISLAND_SAND_PALETTE.dry)
   .lerp(new Color(ISLAND_SAND_PALETTE.wet), ISLAND_SAND_PALETTE.wetBlend).toArray());
 export function shoreRadius(angle) {
@@ -17,6 +18,9 @@ export function baseSandHeight(radius, x, z) {
 export function coastalRadiusAt(x, z) {
   const qx = x / 12, qz = (z - ISLAND_CENTER_Z) / 9;
   return Math.hypot(qx, qz) / shoreRadius(Math.atan2(qz, qx));
+}
+export function worldCoastalRadiusAt(x, z) {
+  return Math.min(coastalRadiusAt(x, z), adiyogiRadiusAt(x, z));
 }
 function smoothstep(low, high, value) {
   const t = Math.max(0, Math.min(1, (value - low) / (high - low)));
@@ -66,7 +70,7 @@ const heights = new Float32Array(columns * rows);
 const siltWeights = new Float32Array(columns * rows);
 for (let iz = 0; iz < rows; iz++) for (let ix = 0; ix < columns; ix++) {
   const x = originX + ix * step, z = originZ + iz * step;
-  heights[iz * columns + ix] = sedimentHeight(x, z);
+  heights[iz * columns + ix] = Math.max(sedimentHeight(x, z), adiyogiTerrainHeight(x, z) - 0.012);
   const radius = coastalRadiusAt(x, z);
   if (radius > 1.08) {
     const coastContribution = Math.max(0, coastalHeight(x, z, radius) - SEABED_Y) ** 6;
@@ -173,7 +177,12 @@ float coastalRadius(vec2 p){
  float radius=1.+.028*sin(angle*5.+.7)+.016*cos(angle*9.)+.012*sin(angle*13.);
  return length(q)/radius;
 }
-float shore(vec2 p){return coastalRadius(p)-(1.+(.035+.08)*.08/.37);}
+float adiyogiRadius(vec2 p){
+ vec2 q=(p-vec2(${ADIYOGI_ISLAND.x.toFixed(1)},${ADIYOGI_ISLAND.z.toFixed(1)}))/vec2(${ADIYOGI_ISLAND.radiusX.toFixed(1)},${ADIYOGI_ISLAND.radiusZ.toFixed(1)});
+ float a=atan(q.y,q.x);
+ return length(q)/(1.+.035*sin(a*3.+.4)+.018*cos(a*5.-.6));
+}
+float shore(vec2 p){return min(coastalRadius(p),adiyogiRadius(p))-(1.+(.035+.08)*.08/.37);}
 
 vec3 seabedSample(vec2 p){
  vec2 grid=(p-uSeabedGrid.xy)/uSeabedGrid.z;
