@@ -1,6 +1,6 @@
 # Meshy character replacement
 
-The active `public/models/sankaran-pillai.glb` now uses the Meshy 6 Lite character generated from `assets/characters/sankaran-meshy-front.png`, derived from the arms-down turnaround sheet. The original Meshy download is in `assets/characters/meshy/`. The previous procedural character is backed up in `assets/characters/versions/pre-meshy/`.
+The active `public/models/sankaran-pillai.glb` now uses the Meshy 6 Lite character generated from `assets/characters/sankaran-meshy-front.png`, derived from the arms-down turnaround sheet. The original Meshy download is in `assets/characters/meshy/`.
 
 The editable source is `assets/characters/sankaran-pillai.blend`. The textured mesh is normalized to 2.256 m, turned to face game -Z, and attached to the existing 25-bone rig. The garment is separated using its texture colors and height, with seated and alternating stride corrective shapes. Hands use blended wrist/forearm weights; individual finger articulation and facial animation are not implemented on this replacement.
 
@@ -16,7 +16,7 @@ Walking and seated poses were visually inspected in Blender. Six asset tests che
 
 # Sankaran Pillai character
 
-The playable traveler now uses `public/models/sankaran-pillai.glb`, built in Blender from the supplied character reference. The editable source is `assets/characters/sankaran-pillai.blend`. A transparent studio preview is saved alongside it. `scripts/build_sankaran.py` contains the geometry, rig, weighting, corrective shape and animation authoring steps; it replaces only the `Sankaran_Character` collection.
+The playable traveler now uses `public/models/sankaran-pillai.glb`, built in Blender from the supplied character reference. The editable source is `assets/characters/sankaran-pillai.blend`. `scripts/build_sankaran.py` contains the geometry, rig, weighting, corrective shape and animation authoring steps; it replaces only the `Sankaran_Character` collection.
 
 The model has 83,220 triangles, 25 deformation bones, eleven material primitives and no external textures. The GLB is approximately 3.0 MB. It includes a bald head, side hair, moustache, closed eyes, speaking mouth, blue shirt, ivory dhoti with gold borders, and bare feet. Geometry is a stylized interpretation of the reference, not a scanned reconstruction.
 
@@ -44,7 +44,7 @@ The production build succeeds. All five character tests pass. The prior full-sui
 
 ## Second visual pass
 
-The head is broader, the belly profile is smoothly curved, and the mouth is recessed into the face. Spherical sleeves and segmented arms were replaced with joined surfaces. The dhoti has a quiet wrap silhouette and overlapping front panel instead of repeated narrow pleats. The revised pointing gesture reaches higher while keeping the neutral game skeleton unchanged. The earlier model and build script are preserved in `assets/characters/versions/v1/`.
+The head is broader, the belly profile is smoothly curved, and the mouth is recessed into the face. Spherical sleeves and segmented arms were replaced with joined surfaces. The dhoti has a quiet wrap silhouette and overlapping front panel instead of repeated narrow pleats. The revised pointing gesture reaches higher while keeping the neutral game skeleton unchanged.
 
 ## Walking update
 
@@ -54,4 +54,4 @@ To recreate the final animation after rebuilding the character: run `node script
 
 ## Third visual pass
 
-Broader, shallower head; larger closed eyes; wider moustache; smaller speaking mouth; warmer matte skin and lighter blue cotton. The shirt has denser smooth geometry and corrected surface normals. The dhoti has soft vertical folds and a more pronounced overlapping panel. The 25-bone rig, seated correction and updated walk are retained. The previous version is preserved in `assets/characters/versions/pre-visual-refinement/`. Character and gait tests pass after re-export.
+Broader, shallower head; larger closed eyes; wider moustache; smaller speaking mouth; warmer matte skin and lighter blue cotton. The shirt has denser smooth geometry and corrected surface normals. The dhoti has soft vertical folds and a more pronounced overlapping panel. The 25-bone rig, seated correction and updated walk are retained. Character and gait tests pass after re-export.

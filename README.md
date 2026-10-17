@@ -47,7 +47,7 @@ The tests cover each boat's handling, hull contact, navigation, resets and frame
 
 ## Reference and status
 
-The downloaded video, extracted frames and comparison captures are in `_ref/`. That folder is excluded by `.ignore` and `.gitignore`.
+Historical reference videos and comparison captures were removed during repository cleanup. `_ref/` retains audit scripts and metadata; new local captures are ignored by Git.
 
 The game is under active visual refinement. Passing the checks does not establish reference-level visual quality. Current review evidence and remaining gaps are recorded locally in `_ref/qa-status.json`.
 

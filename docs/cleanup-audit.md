@@ -149,3 +149,11 @@ Validation: production build passed (large-chunk advisory); gameplay tests passe
 - `assets/.DS_Store`
 - `assets/characters/.DS_Store`
 - `assets/characters/meshy/.DS_Store`
+
+## 2026-10-17 cleanup
+
+Removed 3,631 unused files totaling 772,997,265 bytes: automatic Blender backups, superseded character GLBs, the old procedural luggage source snapshot, review previews, and historical `_ref` images/videos. Of these, 40 files (182,861,543 bytes) were tracked in Git; most reference captures were already ignored.
+
+Kept current editable Blender projects, character reference sheets, Meshy input, animation samples, runtime models, licenses, compression inputs, and all audit scripts/metadata required by tests. Historical review reports may refer to removed captures. Added ignores for Blender backups, old character versions, and root review screenshots. Existing Git history is unchanged, so deletion reduces the checkout but does not remove old blobs from repository history.
+
+Validation after cleanup: all 185 gameplay tests pass; production build passes with the existing chunk-size advisory; lint passes with the existing unused-variable warning in `_ref/foliage-pixel-ray-audit-100.mjs`.
