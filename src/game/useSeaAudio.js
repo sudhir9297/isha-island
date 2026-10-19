@@ -1,3 +1,4 @@
+import { createWindAudio } from './WindAudio.js';
 import { useRef, useEffect } from "react";
 import { footstepSamples } from "./Footsteps.js";
 import { ambientMix, positionAudio, spatialPanner } from "./SpatialAudio.js";
@@ -60,14 +61,15 @@ function createAudio() {
   flutter.connect(pitchFlutter).connect(motor.detune);
   flutter.connect(amplitudeFlutter).connect(motorGain.gain);
   [waves, motor, flutter].forEach((source) => source.start());
+  const wind = createWindAudio(context, master);
   const footsteps = [false, true].map(burdened => {
     const data = footstepSamples(context.sampleRate, burdened);
     const clip = context.createBuffer(1, data.length, context.sampleRate);
     clip.copyToChannel(data, 0);
     return clip;
   });
-  return { context, master, boatPanner, seaGain, motor, motorFilter, motorGain, wakeGain, footsteps, amplitudeFlutter,
-    flutter, sources: [waves, motor, flutter], suspendTimer: null, lastSpeed: -1 };
+  return { context, master, wind, boatPanner, seaGain, motor, motorFilter, motorGain, wakeGain, footsteps, amplitudeFlutter,
+    flutter, sources: [waves, motor, flutter, wind.source], suspendTimer: null, lastSpeed: -1 };
 }
 
 function setSpeed(audio, value, aboard = true) {
@@ -225,5 +227,10 @@ export default function useSeaAudio() {
     };
     tone.start(now); tone.stop(now + .25);
   }
-  return { toggle, speed, release, footstep, spatial, impact, bird };
+  function wind(position, strength, time, paused) {
+    const current = audio.current;
+    if (!enabledRef.current || !current || current.context.state !== 'running') return;
+    current.wind.update(position, strength, time, paused);
+  }
+  return { toggle, speed, release, footstep, spatial, impact, bird, wind };
 }

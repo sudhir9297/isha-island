@@ -1,3 +1,4 @@
+import { hitsNeemProps } from './NeemTerrain.js';
 import { interactDiscovery } from './Discoveries.js';
 import { nearRestSpot, hitsOverlookSeat } from './StoryMoments.js';
 import { WORLD_MARKERS } from './WorldMarkers.js';
@@ -94,7 +95,7 @@ export function stepJourney(s, boat, controls, delta, paused = false) {
     const nx=s.position.x+s.velocityX*dt, nz=s.position.z+s.velocityZ*dt;
     const wall = Math.abs(nz + 12) < .65 && Math.abs(nx) > 1.15 && Math.abs(nx) < 9.2;
     const floor = walkingSurfaceHeight(nx, nz);
-    if (floor !== null && !wall && !hitsOverlookSeat(nx,nz) && clearOfBoat(nx, nz, boat)) {
+    if (floor !== null && !wall && !hitsNeemProps(nx, nz) && !hitsOverlookSeat(nx,nz) && clearOfBoat(nx, nz, boat)) {
       s.running = Boolean(controls.run);
       s.distance += Math.hypot(s.velocityX,s.velocityZ) * dt;
       // Only traversing the central doorway from the arrival side releases bags.

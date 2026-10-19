@@ -1,5 +1,12 @@
+import { NEEM_ISLAND } from './NeemTerrain.js';
 import { ADIYOGI_ISLAND } from "./AdiyogiTerrain.js";
 export const PLACES = [
+  {
+    id: "neem", name: "Neem Point",
+    position: [NEEM_ISLAND.x - 8.5, 0, NEEM_ISLAND.z + 2],
+    subtitle: "A little shade between shores",
+    description: "Land on the small sandy beach and follow the stones to a spreading neem tree. A wooden bench looks out across the channel between Malai Vasal and Adiyogi.",
+  },
   {
     id: "harbour",
     name: "Home harbour",

@@ -1,3 +1,4 @@
+import { NEEM_ISLAND, neemRadiusAt, neemTerrainHeight } from './NeemTerrain.js';
 import { BufferGeometry, Float32BufferAttribute, DataTexture, FloatType, RedFormat, NearestFilter, Color } from "three";
 import { ADIYOGI_ISLAND, adiyogiRadiusAt, adiyogiTerrainHeight } from "./AdiyogiTerrain.js";
 import { SEABED_Y } from "./WorldConfig.js";
@@ -20,7 +21,7 @@ export function coastalRadiusAt(x, z) {
   return Math.hypot(qx, qz) / shoreRadius(Math.atan2(qz, qx));
 }
 export function worldCoastalRadiusAt(x, z) {
-  return Math.min(coastalRadiusAt(x, z), adiyogiRadiusAt(x, z));
+  return Math.min(coastalRadiusAt(x, z), adiyogiRadiusAt(x, z), neemRadiusAt(x, z));
 }
 function smoothstep(low, high, value) {
   const t = Math.max(0, Math.min(1, (value - low) / (high - low)));
@@ -70,7 +71,7 @@ const heights = new Float32Array(columns * rows);
 const siltWeights = new Float32Array(columns * rows);
 for (let iz = 0; iz < rows; iz++) for (let ix = 0; ix < columns; ix++) {
   const x = originX + ix * step, z = originZ + iz * step;
-  heights[iz * columns + ix] = Math.max(sedimentHeight(x, z), adiyogiTerrainHeight(x, z) - 0.012);
+  heights[iz * columns + ix] = Math.max(sedimentHeight(x, z), adiyogiTerrainHeight(x, z) - 0.012, neemTerrainHeight(x, z) - 0.012);
   const radius = coastalRadiusAt(x, z);
   if (radius > 1.08) {
     const coastContribution = Math.max(0, coastalHeight(x, z, radius) - SEABED_Y) ** 6;
@@ -182,7 +183,12 @@ float adiyogiRadius(vec2 p){
  float a=atan(q.y,q.x);
  return length(q)/(1.+.035*sin(a*3.+.4)+.018*cos(a*5.-.6));
 }
-float shore(vec2 p){return min(coastalRadius(p),adiyogiRadius(p))-(1.+(.035+.08)*.08/.37);}
+float neemRadius(vec2 p){
+ vec2 q=(p-vec2(${NEEM_ISLAND.x.toFixed(1)},${NEEM_ISLAND.z.toFixed(1)}))/vec2(${NEEM_ISLAND.radiusX.toFixed(1)},${NEEM_ISLAND.radiusZ.toFixed(1)});
+ float a=atan(q.y,q.x);
+ return length(q)/(1.+.055*sin(a*3.+.4)+.025*cos(a*5.));
+}
+float shore(vec2 p){return min(min(coastalRadius(p),adiyogiRadius(p))-(1.+(.035+.08)*.08/.37),neemRadius(p)-(1.+(.035+.08)*.08/.25));}
 
 vec3 seabedSample(vec2 p){
  vec2 grid=(p-uSeabedGrid.xy)/uSeabedGrid.z;

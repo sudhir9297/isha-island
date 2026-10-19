@@ -199,6 +199,7 @@ export default function Ocean({ onSail, sunRef, quality = "high", profiling = fa
     if (!shadow?.map || shadow.map.width !== shadow.mapSize.width || shadow.map.height !== shadow.mapSize.height) return;
     const { uniforms, target, clip } = resourceRef.current;
     uniforms.uTime.value = clock.elapsedTime;
+    if (sunRef.current) uniforms.uSunRadiance.value.copy(sunRef.current.color).multiplyScalar(sunRef.current.intensity);
     uniforms.toneMappingExposure.value = gl.toneMappingExposure;
     const previousTarget = gl.getRenderTarget();
     const captureGroup = scene.getObjectByName('Underwater capture');

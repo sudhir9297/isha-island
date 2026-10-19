@@ -8,15 +8,15 @@ import {
 } from "./Seabed.js";
 
 const hash = array => createHash("sha256").update(Buffer.from(array.buffer, array.byteOffset, array.byteLength)).digest("hex");
-test("material classification preserves the two-island terrain regression baseline", () => {
+test("material classification preserves the three-island terrain regression baseline", () => {
   const geometry = createSeabedGeometry(), height = createSeabedFieldTexture();
-  // Updated for the intentional Adiyogi terrain expansion (15 October 2026).
+  // Updated for the intentional Neem Point terrain addition (19 October 2026).
   // Covers every physical vertex, normal, index and GPU depth sample; the
   // seabed tests separately verify original shoreline and CPU/GPU agreement.
-  assert.equal(hash(geometry.attributes.position.array), "827e803f1656b2ad0de21629790173fd0574533270ba71a507e9d65940191f96");
-  assert.equal(hash(geometry.attributes.normal.array), "7c3b87d2344c4bbe639680917c04244702db79307bc92381cf1c504461588626");
+  assert.equal(hash(geometry.attributes.position.array), "90a760e0788e71efbe87a3293e6090162c072d82542a13dcf9e8b8244bf9395f");
+  assert.equal(hash(geometry.attributes.normal.array), "551e6e54863492cc1f513a25fcb8a28f7cf4335f47943609c33310c3edb6690d");
   assert.equal(hash(geometry.index.array), "9da826731e7c65a4ecdf42c0c97c80d524ef4180f8d4e31eb81c1f989863fac8");
-  assert.equal(hash(height.image.data), "7bbbb745c5db855156de1585f401e31dcc10f010e61aaea3be29766e012677e6");
+  assert.equal(hash(height.image.data), "a817f324ca45a2bab7b4c8bc4550f7f9af644ee97acb000e774d20a844dedd60");
   geometry.dispose(); height.dispose();
 });
 

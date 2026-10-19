@@ -1,3 +1,4 @@
+import { BRUNO_TREE_MODEL } from './BrunoTreeGeometry.js';
 import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
@@ -8,6 +9,7 @@ import { TRAVELER_ASSET } from './TravelerAsset.js';
 export default function SceneStartup({ onReady, onError }) {
   useGLTF(MALAI_VASAL_ASSET);
   useGLTF(TRAVELER_ASSET);
+  useGLTF(BRUNO_TREE_MODEL);
   const state = useRef({frames: 0, started: false, mounted: false});
   useEffect(() => {
     const current = state.current;

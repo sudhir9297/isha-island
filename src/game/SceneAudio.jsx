@@ -1,17 +1,30 @@
-import {useRef} from 'react';
+import { useWindField } from './WindContext.js';
+import {useRef, useEffect} from 'react';
 import {useFrame} from '@react-three/fiber';
 import {Vector3} from 'three';
 
 export default function SceneAudio({audio, boatState, journey, paused}) {
+  const wind = useWindField();
   const state = useRef({elapsed: 0, birdTime: 5, direction: new Vector3()});
+  useEffect(() => {
+    const quietWhenHidden = () => {
+      if (!document.hidden) return;
+      const traveler = journey.current;
+      const position = traveler.mode === 'aboard' ? boatState.current.position : traveler.position;
+      audio.wind(position, wind.weather.wind, wind.time.value, true);
+    };
+    document.addEventListener('visibilitychange', quietWhenHidden);
+    return () => document.removeEventListener('visibilitychange', quietWhenHidden);
+  }, [audio, journey, boatState, wind]);
   useFrame(({camera}, delta) => {
-    if (paused || document.hidden) return;
+    const traveler = journey.current, boat = boatState.current;
+    const position = traveler.mode === 'aboard' ? boat.position : traveler.position;
+    if (paused || document.hidden) { audio.wind(position, wind.weather.wind, wind.time.value, true); return; }
     const current = state.current;
     current.elapsed += delta; current.birdTime -= delta;
     if (current.elapsed < .1) return;
     current.elapsed = 0;
-    const traveler = journey.current, boat = boatState.current;
-    const position = traveler.mode === 'aboard' ? boat.position : traveler.position;
+    audio.wind(position, wind.weather.wind, wind.time.value, false);
     camera.getWorldDirection(current.direction);
     audio.spatial(position, current.direction, boat.position, traveler.released);
     if (current.birdTime <= 0) {

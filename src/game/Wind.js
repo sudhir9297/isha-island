@@ -1,3 +1,4 @@
+import { useWindField } from './WindContext.js';
 import { leafSurfaceNodes } from './rendering/LeafNodes.js';
 import { windNodes } from './rendering/WindNodes.js';
 import { useCallback, useEffect, useMemo, useRef } from "react";
@@ -39,18 +40,33 @@ const windFunctions = /* glsl */`
   uniform float islandTipMotion;
   uniform vec3 islandWindRoot;
 
-  float islandGust(float time, float phase) {
-    float swell = sin(time * 0.63 - phase);
-    // A longer push followed by an uneven release, shared by trunk and canopy.
-    return 0.57 * swell + 0.2 * swell * swell +
-      0.23 * sin(time * 1.17 - phase * 0.73);
+  uniform vec3 islandWindDirection;
+  uniform float islandWindStrength;
+  uniform vec3 islandTraveler;
+  uniform float islandInteraction;
+  uniform float islandGroundCover;
+
+  float islandNoiseHash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  }
+  float islandNoise(vec2 p) {
+    vec2 cell = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(islandNoiseHash(cell), islandNoiseHash(cell + vec2(1.0, 0.0)), u.x),
+      mix(islandNoiseHash(cell + vec2(0.0, 1.0)), islandNoiseHash(cell + vec2(1.0, 1.0)), u.x), u.y);
+  }
+  float islandGust(float time, vec2 location, vec2 direction) {
+    // Two advected noise scales, following Bruno's shared wind field.
+    vec2 drift = direction * time * 0.055;
+    return (islandNoise(location * 0.1 - drift) - 0.5) +
+      (islandNoise(location * 0.05 - drift * 0.2) - 0.5);
   }
 
   vec3 islandBaseWind(vec3 worldPosition) {
     float height = clamp((worldPosition.y - islandWindRoot.y) / islandWindHeight, 0.0, 1.0);
-    float phase = dot(islandWindRoot.xz, vec2(0.25, 0.17));
-    float gust = islandGust(islandWindTime - height * 0.18, phase);
-    return vec3(0.8, 0.0, 0.6) * islandWindHeight * 0.028 * height * height * gust;
+    float gust = islandGust(islandWindTime - height * 0.18, islandWindRoot.xz, islandWindDirection.xz);
+    return islandWindDirection * islandWindStrength * 1.8 * islandWindHeight * 0.028 * height * height * gust;
   }
 
   vec3 islandWindPosition(vec3 position) {
@@ -61,22 +77,30 @@ const windFunctions = /* glsl */`
       float reach = leafWindReach * length(modelMatrix[0].xyz);
       float tip = clamp(distance(worldPosition, anchor) / reach, 0.0, 1.0);
       vec3 axis = normalize(mat3(modelMatrix) * leafWindAxis);
-      float phase = dot(islandWindRoot.xz, vec2(0.25, 0.17));
-      float bladePhase = dot(axis, vec3(1.7, 0.8, 2.3)) + dot(anchor.xz, vec2(0.31, 0.19));
+        float bladePhase = dot(axis, vec3(1.7, 0.8, 2.3)) + dot(anchor.xz, vec2(0.31, 0.19));
       float delay = tip * (0.38 + reach * 0.12);
-      float gust = islandGust(islandWindTime - delay, phase);
+      float gust = islandGust(islandWindTime - delay, islandWindRoot.xz, islandWindDirection.xz);
       float release = sin(islandWindTime * 2.05 - delay * 2.05 + bladePhase);
-      float flutter = release * (0.4 + 0.6 * abs(gust));
+      float flutter = release * (0.15 + 0.6 * abs(gust));
       float weight = tip * tip;
-      offset += vec3(0.8, 0.0, 0.6) * islandTipMotion * weight * (0.82 * gust + 0.18 * flutter);
-      offset.y += islandTipMotion * weight * 0.43 * flutter;
+      offset += islandWindDirection * islandWindStrength * 1.8 * islandTipMotion * weight * (0.82 * gust + 0.18 * flutter);
+      offset.y += islandWindStrength * 1.8 * islandTipMotion * weight * 0.43 * flutter;
       // Twist around the blade's own midrib. Its seam and stem stay together.
       vec3 lateral = worldPosition - anchor - axis * dot(worldPosition - anchor, axis);
-      offset += cross(axis, lateral) * (0.095 * gust + 0.055 * flutter) * weight;
+      offset += islandWindStrength * 1.8 * cross(axis, lateral) * (0.095 * gust + 0.055 * flutter) * weight;
       // Ground-cover blades grow from separate fixed roots within one bed.
       // Canopy blades instead inherit their moving trunk/branch attachment.
-      if (anchor.y - islandWindRoot.y < islandWindHeight * 0.2)
+      if (islandGroundCover > 0.5 || anchor.y - islandWindRoot.y < islandWindHeight * 0.2)
         offset -= islandBaseWind(anchor);
+      // Low plants bend away from feet; attachment points remain fixed.
+      if (islandGroundCover > 0.5) {
+        vec2 away = worldPosition.xz - islandTraveler.xz;
+        float proximity = 1.0 - smoothstep(0.0, 1.3, length(away));
+        float vertical = clamp(1.0 - abs(anchor.y - islandTraveler.y) / 1.5, 0.0, 1.0);
+        float push = proximity * vertical * islandInteraction * weight;
+        offset.xz += away / max(length(away), 0.08) * push * 0.28;
+        offset.y -= push * 0.06;
+      }
     #endif
     // Inverse of the orthogonal TRS basis, including object/group scale.
     vec3 localOffset = vec3(
@@ -99,6 +123,7 @@ const windFunctions = /* glsl */`
 `;
 
 export function useIslandWind(height, tipMotion, leafLighting) {
+  const field = useWindField();
   const probe = import.meta.env.DEV ? new URLSearchParams(window.location.search).get("foliageProbe") : null;
   const root = useRef();
   const frameData = useRef();
@@ -108,7 +133,12 @@ export function useIslandWind(height, tipMotion, leafLighting) {
   }, [probe]);
   const wind = useMemo(() => {
     const uniforms = {
-      islandWindTime: { value: 0 },
+      islandWindTime: field.time,
+      islandWindDirection: field.direction,
+      islandWindStrength: field.strength,
+      islandTraveler: field.traveler,
+      islandInteraction: field.interaction,
+      islandGroundCover: { value: height <= 1 ? 1 : 0 },
       islandWindRoot: { value: new THREE.Vector3() },
       islandWindHeight: { value: height },
       islandTipMotion: { value: tipMotion },
@@ -160,15 +190,14 @@ export function useIslandWind(height, tipMotion, leafLighting) {
       leafMesh: { customDepthMaterial: leafDepth, customDistanceMaterial: leafDistance, onUpdate: pad, ...(probe === "no-shadow" ? { castShadow: false } : {}) },
       dispose: () => { depth.dispose(); leafDepth.dispose(); distance.dispose(); leafDistance.dispose(); },
     };
-  }, [height, tipMotion, leafLighting, probe]);
-  useFrame(({ clock }) => {
+  }, [height, tipMotion, leafLighting, probe, field]);
+  useFrame(() => {
     const active = frameData.current;
     if (!root.current || !active) return;
     root.current.getWorldPosition(active.uniforms.islandWindRoot.value);
     root.current.getWorldScale(active.scale);
     active.uniforms.islandWindHeight.value = Math.max(0.01, height * active.scale.y);
     active.uniforms.islandTipMotion.value = tipMotion * active.scale.y;
-    active.uniforms.islandWindTime.value = clock.elapsedTime;
   });
   useEffect(() => {
     frameData.current = wind;

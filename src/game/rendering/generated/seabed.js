@@ -18,9 +18,17 @@ const adiyogiRadius = /*@__PURE__*/ Fn( ( [ p ] ) => {
 	return length( q ).div( add( 1., mul( .035, sin( a.mul( 3. ).add( .4 ) ) ) ).add( mul( .018, cos( a.mul( 5. ).sub( .6 ) ) ) ) );
 
 }, { p: 'vec2', return: 'float' } );
+const neemRadius = /*@__PURE__*/ Fn( ( [ p ] ) => {
+
+	const q = vec2(p.sub( vec2( 65.0, - 48.0 ) ).div( vec2( 8.0, 6.0 ) )).toVar();
+	const a = float(atan( q.y, q.x )).toVar();
+
+	return length( q ).div( add( 1., mul( .055, sin( a.mul( 3. ).add( .4 ) ) ) ).add( mul( .025, cos( a.mul( 5. ) ) ) ) );
+
+}, { p: 'vec2', return: 'float' } );
 const shore = /*@__PURE__*/ Fn( ( [ p ] ) => {
 
-	return min( coastalRadius( p ), adiyogiRadius( p ) ).sub( add(1., div(mul(add(.035, .08), .08), .37)) );
+	return min( min( coastalRadius( p ), adiyogiRadius( p ) ).sub( add(1., div(mul(add(.035, .08), .08), .37)) ), neemRadius( p ).sub( add(1., div(mul(add(.035, .08), .08), .25)) ) );
 
 }, { p: 'vec2', return: 'float' } );
 const hash = /*@__PURE__*/ Fn( ( [ p ] ) => {
@@ -59,6 +67,8 @@ const uSeabedMaterial = texture(uniforms['uSeabedMaterial']?.value);
 const uSeabedGrid = reference( 'value', 'vec4', uniforms[ 'uSeabedGrid' ] );
 const uSeabedSize = reference( 'value', 'vec2', uniforms[ 'uSeabedSize' ] );
 const uSeabedMaxHeight = reference( 'value', 'float', uniforms[ 'uSeabedMaxHeight' ] );
+
+
 
 
 

@@ -1,3 +1,6 @@
+import WindCloth from './WindCloth.jsx';
+import { useWindField } from './WindContext.js';
+import { canopyDisplacement } from './ClothMotion.js';
 import { hullFill } from './rendering/SurfaceNodes.js';
 import NodeShaderMaterial from './rendering/NodeShaderMaterial.jsx';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from "react";
@@ -149,6 +152,7 @@ function Timber({
 }
 
 function LaunchCanopy() {
+  const wind = useWindField();
   const cloth = useMemo(() => {
     const vertices = [], colors = [], indices = [];
     const cream = new THREE.Color("#f0e0b8"), stripe = new THREE.Color("#3e8290");
@@ -166,9 +170,24 @@ function LaunchCanopy() {
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
     geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
     geometry.setIndex(indices); geometry.computeVertexNormals();
+    geometry.userData.rest = geometry.attributes.position.array.slice();
+    geometry.userData.windTime = -1; geometry.userData.windStrength = -1;
     return geometry;
   }, []);
   useEffect(() => () => cloth.dispose(), [cloth]);
+  useFrame(() => {
+    if (cloth.userData.windTime === wind.time.value && cloth.userData.windStrength === wind.strength.value) return;
+    // eslint-disable-next-line react/immutability -- Cache updates for this mutable Three.js geometry.
+    cloth.userData.windTime = wind.time.value; cloth.userData.windStrength = wind.strength.value;
+    const p = cloth.attributes.position, rest = cloth.userData.rest;
+    for (let i = 0; i < p.count; i++) {
+      const x = rest[i * 3], z = rest[i * 3 + 2];
+      p.setY(i, rest[i * 3 + 1] + canopyDisplacement(x, z, wind.time.value, wind.strength.value));
+    }
+    // eslint-disable-next-line react/immutability -- Three.js cloth buffer updated in the frame loop.
+    p.needsUpdate = true;
+    cloth.computeVertexNormals();
+  });
   return <group>
     <mesh geometry={cloth} castShadow receiveShadow>
       <meshStandardMaterial vertexColors side={THREE.DoubleSide} roughness={0.96} />
@@ -211,7 +230,7 @@ function BoatFittings({ id }) {
   </group>;
 }
 
-const BoatModel = memo(function BoatModel({ modelRef, motorRef, propellerRef, flagRef, boatId }) {
+const BoatModel = memo(function BoatModel({ modelRef, motorRef, propellerRef, boatId }) {
   const profile = boatProfile(boatId);
   const data = useMemo(() => {
     const hull = hullGeometry();
@@ -238,7 +257,6 @@ const BoatModel = memo(function BoatModel({ modelRef, motorRef, propellerRef, fl
         [w, 0.51, z],
       ];
     });
-    const flag = new THREE.PlaneGeometry(0.57, 0.36, 8, 2);
     const foredeck = new THREE.BufferGeometry();
     foredeck.setAttribute(
       "position",
@@ -251,10 +269,10 @@ const BoatModel = memo(function BoatModel({ modelRef, motorRef, propellerRef, fl
     );
     foredeck.computeVertexNormals();
     foredeck.setAttribute("uv", new THREE.Float32BufferAttribute([0.5, 0, 0, 1, 1, 1], 2));
-    return { hull, inside, rails, ribs, flag, foredeck, teak: createTeakTexture(), reflection: createBoatReflection() };
+    return { hull, inside, rails, ribs, foredeck, teak: createTeakTexture(), reflection: createBoatReflection() };
   }, [boatId]);
   useEffect(() => () => {
-    for (const key of ["hull", "inside", "flag", "foredeck", "teak", "reflection"]) data[key].dispose();
+    for (const key of ["hull", "inside", "foredeck", "teak", "reflection"]) data[key].dispose();
   }, [data]);
   return (
     <group ref={modelRef} scale={profile.modelScale}>
@@ -444,32 +462,7 @@ const BoatModel = memo(function BoatModel({ modelRef, motorRef, propellerRef, fl
             roughness={0.4}
           />
         </mesh>
-        <mesh
-          ref={flagRef}
-          geometry={data.flag}
-          position={[0.285, 0.84, 0]}
-          castShadow
-        >
-          <meshStandardMaterial
-            color="#e84836"
-            emissive="#e84836"
-            emissiveIntensity={0.055}
-            roughness={0.9}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-        <mesh position={[0.27, 0.85, 0.014]}>
-          <planeGeometry args={[0.36, 0.22]} />
-          <meshStandardMaterial
-            color="#14594b"
-            side={THREE.DoubleSide}
-            roughness={0.9}
-          />
-        </mesh>
-        <mesh position={[0.27, 0.85, 0.019]} rotation={[0, 0, Math.PI / 4]}>
-          <planeGeometry args={[0.095, 0.095]} />
-          <meshStandardMaterial color="#e9d18a" side={THREE.DoubleSide} />
-        </mesh>
+        <WindCloth position={[0, 1.02, 0]} emblem />
       </group>
       <group position={[0, 0.665, -1.57]}>
         {[0, 1, 2, 3].map((i) => (
@@ -753,7 +746,6 @@ export default function Boat({
   const motor = useRef();
   const propeller = useRef();
   const propellerPhase = useRef(0);
-  const flag = useRef();
   const telemetryTime = useRef(0);
   const pose = useRef({});
   useFrame(({ clock }, delta) => {
@@ -775,12 +767,6 @@ export default function Boat({
     motor.current.rotation.y = motorSteeringAngle(state);
     propellerPhase.current = advancePropeller(propellerPhase.current, state.speed, delta, paused);
     propeller.current.rotation.z = propellerPhase.current;
-    const pos = flag.current.geometry.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      pos.setZ(i, Math.sin(t * 5 + x * 11) * (x + 0.3) * 0.08);
-    }
-    pos.needsUpdate = true;
     telemetryTime.current += delta;
     if (onTelemetry && telemetryTime.current > 0.16) {
       telemetryTime.current = 0;
@@ -797,7 +783,7 @@ export default function Boat({
   return (
     <>
       <group ref={root} scale={BOAT_SCALE}>
-        <BoatModel key={boatId} boatId={boatId} modelRef={model} motorRef={motor} propellerRef={propeller} flagRef={flag} />
+        <BoatModel key={boatId} boatId={boatId} modelRef={model} motorRef={motor} propellerRef={propeller} />
       </group>
       <Wake boatState={boatState} paused={paused} />
     </>

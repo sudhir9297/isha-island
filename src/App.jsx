@@ -1,3 +1,8 @@
+import { WeatherLighting, GrassInteraction, DriftingLeaves } from './game/Atmosphere.jsx';
+import { DockPennants } from './game/WindCloth.jsx';
+import NeemIsland from './game/NeemIsland.jsx';
+import WindSystem from './game/WindSystem.jsx';
+import WindLines from './game/WindLines.jsx';
 import GameRendering from './game/rendering/GameRendering.jsx';
 import { createGameRenderer } from './game/rendering/createGameRenderer.js';
 import GameplayPrompt from './game/GameplayPrompt.jsx';
@@ -278,6 +283,7 @@ export default function App() {
             <span>This scene needs WebGPU or WebGL 2 support.</span>
           }
         >
+          <WindSystem paused={paused}>
           <Suspense fallback={null}><SceneStartup onReady={setSceneReady} onError={setStartupError} /></Suspense>
           <color attach="background" args={["#07526f"]} />
           <hemisphereLight args={["#d9ecf3", "#647662", 0.82]} />
@@ -314,9 +320,12 @@ export default function App() {
           />
           <StaticReef onTerrainReady={setReefField} />
           <StaticIsland />
+          <DockPennants />
+          <DriftingLeaves journey={journey} boatState={boatState} enabled={captureFocus === "scene" && !freeCamera} />
           <DiscoveryObjects journey={journey} paused={paused} />
           <BeachCrab journey={journey} boatState={boatState} paused={paused} />
           <AdiyogiIsland />
+          <NeemIsland />
           <GatePortal journey={journey} paused={paused} />
           <QuietOverlook journey={journey} />
           <InteractionMarker boatState={boatState} journey={journey} paused={paused || freeCamera} />
@@ -353,8 +362,12 @@ export default function App() {
             onApproach={setNearbyPlace}
             paused={paused || freeCamera || journeyStatus.mode !== "aboard"}
           />
+          <WindLines journey={journey} boatState={boatState} enabled={captureFocus === "scene" && !freeCamera} />
           </clippingGroup>
+          <WeatherLighting sunRef={sunRef} />
+          <GrassInteraction journey={journey} />
           <GameRendering quality={quality} onError={setStartupError} />
+          </WindSystem>
         </Canvas>
       </SceneBoundary>
       <button ref={menuTriggerRef} hidden={Boolean(panel) || !sceneReady} className="menu-trigger" title="Menu · Esc" aria-label="Open menu" aria-haspopup="dialog" onClick={() => { setShowHint(false); setPanel("menu"); }}>
@@ -494,7 +507,7 @@ export default function App() {
                 </p>
                 <AtollMap boat={{x: telemetry.x, z: telemetry.z, heading: telemetry.heading}} found={found} onSelect={(id) => { setSelected(id); setPanel("journal"); }} />
                 <div className="map-locations">{PLACES.map((place, index) => <button key={place.id} onClick={() => { setSelected(place.id); setPanel("journal"); }}><span>0{index + 1}</span><strong>{place.name}</strong><small>{found.includes(place.id) ? "Found" : "Explore"}</small></button>)}</div>
-                <button className="reset-button" onClick={() => { setFreeCamera(true); setCaptureFocus("scene"); setMapAction({ type: "island", id: Date.now() }); setPanel(null); setShowHint(false); }}>Explore both islands ↗</button>
+                <button className="reset-button" onClick={() => { setFreeCamera(true); setCaptureFocus("scene"); setMapAction({ type: "island", id: Date.now() }); setPanel(null); setShowHint(false); }}>Explore all islands ↗</button>
                 <p className="map-caption">
                   You are the little white boat. Sail close to a place to
                   discover it.
@@ -567,7 +580,7 @@ export default function App() {
                 <div className="settings-row">
                   <span>
                     <strong>Sounds of the sea</strong>
-                    <small>Soft waves and a quiet outboard</small>
+                    <small>Waves, wind in the trees, and a quiet outboard</small>
                   </span>
                   <button
                     className={`switch ${sound ? "on" : ""}`}

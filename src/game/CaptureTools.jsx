@@ -78,6 +78,7 @@ export default function CaptureTools({ focus = "scene", onFocus, onRehearse, onR
       <option value="traveler-back">Traveler back</option>
       <option value="manta">Manta ray</option>
       <option value="shark">Reef shark</option>
+      <option value="neem">Neem Point</option>
       <option value="adiyogi">Adiyogi Island</option>
       <option value="foliage">Trees and wind</option>
     </select></label>

@@ -1,3 +1,4 @@
+import { useIslandWind } from './Wind.js';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -9,7 +10,7 @@ import { GATE } from './GateTerrain.js';
 function makeDetails() {
   let seed = 92831;
   const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
-  const vertices = [], colors = [], indices = [];
+  const vertices = [], colors = [], indices = [], roots = [], reaches = [], axes = [];
   const dark = new THREE.Color('#388f50'), light = new THREE.Color('#aed16f');
   for (let sample = 0; sample < 950; sample++) {
     const x = (random() - 0.5) * 21, z = (random() - 0.5) * 14;
@@ -27,7 +28,10 @@ function makeDetails() {
         [x+dx*h*0.3-dz*width*0.6,y+h*0.6,z+dz*h*0.3+dx*width*0.6],
         [x+dx*h*0.3+dz*width*0.6,y+h*0.6,z+dz*h*0.3-dx*width*0.6],
         [x+dx*h*0.72,y+h,z+dz*h*0.72]];
-      points.forEach((p,i) => { vertices.push(...p); const c=dark.clone().lerp(light,i/5); colors.push(c.r,c.g,c.b); });
+      points.forEach((p,i) => {
+        vertices.push(...p); const c=dark.clone().lerp(light,i/5); colors.push(c.r,c.g,c.b);
+        roots.push(...(i < 2 ? p : [x,y,z])); reaches.push(h * 1.25); axes.push(dx * .58, .81, dz * .58);
+      });
       indices.push(base,base+1,base+2,base+1,base+3,base+2,base+2,base+3,base+4);
     }
   }
@@ -41,13 +45,16 @@ function makeDetails() {
       const points = [[x,y,z],[x+direction*size*0.65,y+size*0.5,z+0.025],
         [x+direction*size*1.5,y+size*0.15,z], [x+direction*size*0.65,y-size*0.2,z+0.025]];
       const tone = dark.clone().lerp(light, 0.2 + random() * 0.3);
-      points.forEach(p => { vertices.push(...p); colors.push(tone.r,tone.g,tone.b); });
+      points.forEach(p => { vertices.push(...p); colors.push(tone.r,tone.g,tone.b); roots.push(x,y,z); reaches.push(size * 1.6); axes.push(direction,0,0); });
       indices.push(base,base+1,base+2,base,base+2,base+3);
     }
   }
   const grass = new THREE.BufferGeometry();
   grass.setAttribute('position', new THREE.Float32BufferAttribute(vertices,3));
   grass.setAttribute('color', new THREE.Float32BufferAttribute(colors,3));
+  grass.setAttribute('leafWindRoot', new THREE.Float32BufferAttribute(roots,3));
+  grass.setAttribute('leafWindReach', new THREE.Float32BufferAttribute(reaches,1));
+  grass.setAttribute('leafWindAxis', new THREE.Float32BufferAttribute(axes,3));
   grass.setIndex(indices); grass.computeVertexNormals();
   const rocks = [];
   const sites = [[-7.6,3.4,1.0],[-9,-1.7,0.8],[7.8,1.5,0.85],[5.2,-4.8,1.1],[-4.8,-5.2,0.85]];
@@ -65,10 +72,11 @@ function makeDetails() {
   return {grass,stone};
 }
 export default function CoastalDetails() {
+  const [wind, windRoot] = useIslandWind(.6, .035);
   const data=useMemo(() => makeDetails(),[]);
   useEffect(()=>()=>Object.values(data).forEach(g=>g.dispose()),[data]);
-  return <group name="Dune grass and weathered coastal outcrops">
-    <mesh geometry={data.grass} receiveShadow><meshStandardMaterial vertexColors side={THREE.DoubleSide} roughness={1}/></mesh>
+  return <group ref={windRoot} name="Dune grass and weathered coastal outcrops">
+    <mesh geometry={data.grass} receiveShadow {...wind.leafMesh}><meshStandardMaterial {...wind.stemNodes} onBeforeCompile={wind.stemShader} customProgramCacheKey={wind.stemKey} vertexColors side={THREE.DoubleSide} roughness={1}/></mesh>
     <mesh geometry={data.stone} userData={{ crabSurface: true }} castShadow receiveShadow><meshStandardMaterial vertexColors roughness={0.94} flatShading/></mesh>
   </group>;
 }

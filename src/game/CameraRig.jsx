@@ -1,3 +1,4 @@
+import { NEEM_ISLAND } from './NeemTerrain.js';
 import { createCameraFollow, changeFollowZoom, stepCameraFollow } from './CameraFollow.js';
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
@@ -59,7 +60,7 @@ export default function CameraRig({ journey, boatState, freeCamera, captureFocus
   useEffect(() => {
     if (!freeCamera) {
       if (camera.current && captureFocus !== "scene") {
-        camera.current.zoom = Math.min(size.height, size.width * 1.8) / (captureFocus === "adiyogi" ? 62 : captureFocus === "scene" ? CAMERA_VIEW_HEIGHT : captureFocus === "foliage" ? 14 : captureFocus === "gate-detail" ? 10.8 : captureFocus === "gate" ? 21 : captureFocus === "boat" ? 7 : captureFocus.startsWith("traveler") ? 4.2 : 10);
+        camera.current.zoom = Math.min(size.height, size.width * 1.8) / (captureFocus === "neem" ? 22 : captureFocus === "adiyogi" ? 62 : captureFocus === "scene" ? CAMERA_VIEW_HEIGHT : captureFocus === "foliage" ? 14 : captureFocus === "gate-detail" ? 10.8 : captureFocus === "gate" ? 21 : captureFocus === "boat" ? 7 : captureFocus.startsWith("traveler") ? 4.2 : 10);
         camera.current.updateProjectionMatrix();
       }
       return;
@@ -93,7 +94,9 @@ export default function CameraRig({ journey, boatState, freeCamera, captureFocus
       smoothedOffset.current.copy(camera.current.position).sub(target.current);
       wasFree.current = false;
     }
-    const destination = captureFocus === "adiyogi"
+    const destination = captureFocus === "neem"
+      ? followPoint.current.set(NEEM_ISLAND.x, 2, NEEM_ISLAND.z)
+      : captureFocus === "adiyogi"
       ? followPoint.current.set(ADIYOGI_ISLAND.x, 0, ADIYOGI_ISLAND.z)
       : captureFocus === "foliage"
       ? followPoint.current.set(-8.5, 3, ISLAND_CENTER_Z)
@@ -139,7 +142,7 @@ export default function CameraRig({ journey, boatState, freeCamera, captureFocus
         ref={camera}
         makeDefault
         position={[START.x + CAMERA_OFFSET[0], CAMERA_OFFSET[1], START.z + CAMERA_OFFSET[2]]}
-        zoom={Math.min(size.height, size.width * 1.8) / (captureFocus === "adiyogi" ? 62 : captureFocus === "scene" ? CAMERA_VIEW_HEIGHT : captureFocus === "foliage" ? 14 : captureFocus === "gate-detail" ? 10.8 : captureFocus === "gate" ? 21 : captureFocus === "boat" ? 7 : captureFocus.startsWith("traveler") ? 4.2 : 10)}
+        zoom={Math.min(size.height, size.width * 1.8) / (captureFocus === "neem" ? 22 : captureFocus === "adiyogi" ? 62 : captureFocus === "scene" ? CAMERA_VIEW_HEIGHT : captureFocus === "foliage" ? 14 : captureFocus === "gate-detail" ? 10.8 : captureFocus === "gate" ? 21 : captureFocus === "boat" ? 7 : captureFocus.startsWith("traveler") ? 4.2 : 10)}
         near={0.1}
         far={400}
       />

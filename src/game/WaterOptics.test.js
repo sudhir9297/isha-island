@@ -183,7 +183,7 @@ function shaderSurface(x, z, time) {
 }
 
 test("float32 shader field agrees with buoyancy through negative cells, shore triangles, and far taper", () => {
-  const points = [[-28, -36], [-12.25, -12.25], [-12.125, -12.125], [12.125, -12.125], [-50, 50], [44.5, -39.25], [104.5, -39.25], [111, 0], [55, -67], [90, -42]];
+  const points = [[65, -48], [56.5, -48], [65, -41.5], [72.125, -48.125], [65, -57], [-28, -36], [-12.25, -12.25], [-12.125, -12.125], [12.125, -12.125], [-50, 50], [44.5, -39.25], [104.5, -39.25], [111, 0], [55, -67], [90, -42]];
   for (let i = 0; i < 240; i++) points.push([f32(-45 + (i * 9.713) % 90), f32(-39 + (i * 13.417) % 87)]);
   let visibleDisplacement = 0;
   for (const [x, z] of points) for (const time of [0, 1.5, 17.7, 140]) {

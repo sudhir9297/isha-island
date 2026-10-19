@@ -1,3 +1,4 @@
+import { NEEM_ISLAND, neemShoreRadius } from './NeemTerrain.js';
 import { ADIYOGI_ISLAND, adiyogiShoreRadius } from "./AdiyogiTerrain.js";
 import { PLACES } from "./Places";
 
@@ -8,7 +9,7 @@ export default function AtollMap({ boat, found, onSelect }) {
     <svg
       className="atoll-map"
       viewBox="-30 -120 205 150"
-      aria-label="Map of Malai Vasal and Adiyogi islands and your boat"
+      aria-label="Map of Malai Vasal, Neem Point and Adiyogi islands and your boat"
       role="group"
     >
       <defs>
@@ -17,6 +18,12 @@ export default function AtollMap({ boat, found, onSelect }) {
           <stop offset="100%" stopColor="#206c70" />
         </radialGradient>
       </defs>
+      <ellipse cx={NEEM_ISLAND.x} cy={NEEM_ISLAND.z} rx="11" ry="9" fill="url(#shelf)" />
+      <path d={Array.from({length: 64}, (_, i) => {
+        const a = i / 64 * Math.PI * 2, r = neemShoreRadius(a);
+        return `${i ? 'L' : 'M'}${NEEM_ISLAND.x + Math.cos(a) * 8 * r},${NEEM_ISLAND.z + Math.sin(a) * 6 * r}`;
+      }).join(' ') + 'Z'} fill="#e5ce8c" />
+      <ellipse cx={NEEM_ISLAND.x} cy={NEEM_ISLAND.z} rx="3.6" ry="2.7" fill="#618a58" />
       <ellipse cx={ADIYOGI_ISLAND.x} cy={ADIYOGI_ISLAND.z} rx="35" ry="27" fill="url(#shelf)" />
       <path d={Array.from({length: 96}, (_, i) => {
         const a = i / 96 * Math.PI * 2, r = adiyogiShoreRadius(a);
