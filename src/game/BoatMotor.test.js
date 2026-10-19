@@ -7,7 +7,7 @@ import { HULL_MESH, transformBoatHull } from "./BoatHull.js";
 import { advancePropeller, MOTOR_CONTACT_MESH, PROPELLER_GEOMETRY, PROPELLER_HUB_GEOMETRY, PROPELLER_POSITION } from "./BoatMotor.js";
 import { createHullContactScratch, measureHullSeabed } from "./BoatHullCollision.js";
 import { resolveHullCoast } from "./BoatPhysics.js";
-import { createMeshProbes, renderedMotorMatrix } from "../../_ref/boat-coast-audit-99.mjs";
+import { createMeshProbes, renderedMotorMatrix } from "../../scripts/boat-coast-audit-99.mjs";
 
 test("the lower unit and complete spinning prop stay immersed through boat poses", () => {
   const prop = PROPELLER_GEOMETRY.attributes.position, point = new Vector3();

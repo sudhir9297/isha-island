@@ -279,7 +279,7 @@ test("every boat reaches an open-water click destination and brakes", () => {
 });
 
 test("the rendered keel and hull skin clear the physical coast across boat poses", async () => {
-  const { auditCoast } = await import("../../_ref/boat-coast-audit-99.mjs");
+  const { auditCoast } = await import("../../scripts/boat-coast-audit-99.mjs");
   const audit = auditCoast();
   assert.equal(audit.poses, 13824);
   assert.equal(audit.conflicts, 0, JSON.stringify(audit.examples));
@@ -288,7 +288,7 @@ test("the rendered keel and hull skin clear the physical coast across boat poses
 
 test("the shared hull transform matches Three's rendered XYZ pose", async () => {
   const { HULL_MESH, transformBoatHull } = await import("./BoatHull.js");
-  const { renderedHullMatrix } = await import("../../_ref/boat-coast-audit-99.mjs");
+  const { renderedHullMatrix } = await import("../../scripts/boat-coast-audit-99.mjs");
   const output = new Float64Array(HULL_MESH.positions.length), point = new Vector3();
   for (const profile of BOATS) for (const time of [0, 2, 9, 17]) for (const steering of [-1, 1]) {
     const boat = state([14.65, 0, -12], profile.maxSpeed);
@@ -303,7 +303,7 @@ test("the shared hull transform matches Three's rendered XYZ pose", async () => 
 });
 
 test("coastal contact follows the displayed clock phase during motion and pause", async () => {
-  const { createHullProbes, renderedHullMatrix } = await import("../../_ref/boat-coast-audit-99.mjs");
+  const { createHullProbes, renderedHullMatrix } = await import("../../scripts/boat-coast-audit-99.mjs");
   const { seabedHeightAt } = await import("./Seabed.js");
   const { resolveHullCoast } = await import("./BoatPhysics.js");
   const probes = createHullProbes(), point = new Vector3();

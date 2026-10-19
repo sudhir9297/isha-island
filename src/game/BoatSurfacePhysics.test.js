@@ -8,7 +8,7 @@ import { stepBoatFrame, resolveHullCoast } from "./BoatPhysics.js";
 import { measureHullSeabed, createHullContactScratch } from "./BoatHullCollision.js";
 import { createReefHeightField } from "./Seabed.js";
 import { sampleOceanSurface } from "./WaterOptics.js";
-import { auditReef, actualReefField } from "../../_ref/boat-coast-audit-99.mjs";
+import { auditReef, actualReefField } from "../../scripts/boat-coast-audit-99.mjs";
 
 const state = (id = "skiff") => ({ boatId: id, position: new Vector3(-25, 0, 10), heading: 0, speed: 0 });
 

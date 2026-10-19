@@ -23,9 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 
-# Local reference media; retain audit scripts used by tests.
-_ref/*
-!_ref/*.mjs
+# Local reference files
+/_ref/
 
 # Generated local asset and performance reports
 reports/

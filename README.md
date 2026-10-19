@@ -47,7 +47,7 @@ The tests cover each boat's handling, hull contact, navigation, resets and frame
 
 ## Reference and status
 
-Historical reference videos and comparison captures were removed during repository cleanup. `_ref/` retains audit scripts and metadata; new local captures are ignored by Git.
+Historical reference videos and comparison captures were removed during repository cleanup. `_ref/` holds local reference files and is ignored by Git. The audit helper required by tests is kept in `scripts/`.
 
 The game is under active visual refinement. Passing the checks does not establish reference-level visual quality. Current review evidence and remaining gaps are recorded locally in `_ref/qa-status.json`.
 
