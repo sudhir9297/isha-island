@@ -1,3 +1,4 @@
+export const ROWBOAT = Object.freeze({ id:'rowboat', name:'Wooden rowboat', description:'A quiet beginning, one stroke at a time.', maxSpeed:2.1, reverseSpeed:1, acceleration:1.25, reverseAcceleration:1, coastDrag:.5, brakeDrag:4, lateralDrag:4.5, turnRate:1.05, cruiseSpeed:1.6, interior:'#ae7847', floor:['#a06b3e','#bd8a56'], trim:'#77502f', modelScale:[1,1,1] });
 export const BOATS = Object.freeze([
   Object.freeze({
     id: "skiff", name: "Tide skiff", description: "Light, nimble, and easy to explore in.",
@@ -20,5 +21,6 @@ export const BOATS = Object.freeze([
 ]);
 
 export function boatProfile(id) {
+  if(id==='rowboat')return ROWBOAT;
   return BOATS.find((boat) => boat.id === id) ?? BOATS[0];
 }

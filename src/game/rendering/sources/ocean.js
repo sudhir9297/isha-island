@@ -76,7 +76,8 @@ uniform sampler2DShadow uSunDepth;
 uniform mat4 uSunMatrix;
 uniform float uSunReady;
 uniform vec2 uSunTexel;
-uniform vec3 uSunDirection,uSunRadiance;
+uniform vec3 uSunDirection,uSunRadiance,uWindDirection;
+uniform float uWindStrength;
 ${WATER_OPTICS_GLSL}
 float sunVisibility(vec3 world){
  if(uSunReady<.5)return 1.;
@@ -176,7 +177,7 @@ void main(){
   // foreground shore colors or spreading object color onto empty floor pixels.
   vec3 radiance=under.rgb;
   float totalWeight=1.;
-  float blurRadius=min(1.4,viewPath*.35);
+  float blurRadius=mix(.12,1.65,smoothstep(.35,2.8,viewPath));
   for(int i=0;i<4;i++){
    vec2 direction=i==0?vec2(1.,0.):i==1?vec2(-1.,0.):i==2?vec2(0.,1.):vec2(0.,-1.);
    vec2 uv=clamp(distorted+direction*blurRadius/uResolution,vec2(.002),vec2(.998));
@@ -202,12 +203,37 @@ void main(){
  vec2 skyUV=reflectionDirection.xz/max(.15,abs(reflectionDirection.y));
  float skyCloud=smoothstep(.7,.9,noise(skyUV*.8+vec2(uTime*.003,0.)));
  vec3 sky=vec3(.012,.36,.64)+vec3(.10,.055,.035)*skyCloud*.28;
- float roughness=waterSurfaceRoughness(p,uTime);
+ vec2 windDrift=uWindDirection.xz*uTime*.055;
+ float gust=noise(p*.1-windDrift)+noise(p*.05-windDrift*.2)-1.;
+ float roughness=waterSurfaceRoughness(p,uTime)+gust*uWindStrength*.035;
  float sunSpecular=waterSunSpecular(surfaceNormal,viewDirection,uSunDirection,roughness);
  // The calm lagoon uses a filtered solar disk, with restrained reflected exposure.
  float reflectionShelter=1.-smoothstep(.8,2.2,floorDepth);
  float solarExposure=mix(.044,.22,reflectionShelter);
  c=c*(1.-fresnel)+sky*fresnel+uSunRadiance*sunSpecular*solarExposure;
+
+ // Thin, broken contact foam follows captured submerged objects, not the floor.
+ // Undistorted depth keeps the edge attached to posts and rocks as waves move.
+ vec4 contactColor=texture2D(uUnderwater,screen);
+ float contactDepth=texture2D(uDepth,screen).r;
+ vec3 contactWorld=positionFromDepth(screen,contactDepth);
+ float immersion=vWorld.y-contactWorld.y;
+ float contactWidth=max(.045,fwidth(immersion)*1.25);
+ float contact=(1.-smoothstep(.012,contactWidth,immersion))*step(.001,immersion);
+ float contactBreakup=smoothstep(.25,.65,noise(p*5.-uWindDirection.xz*uTime*.15));
+ if(contactColor.a>.5&&contactDepth<.99999){
+  c=mix(c,uFoam,contact*contactBreakup*.52);
+ }
+
+ // Broken contour bands move toward shallower water, ahead of the swash.
+ float coastDepth=max(0.,vWorld.y-seabedHeight(p));
+ float bandPhase=coastDepth*16.+uTime*.8+noise(p*.35)*.85;
+ float bandDistance=abs(fract(bandPhase/6.2831853)-.5)*6.2831853;
+ float bandWidth=max(.17,fwidth(bandPhase)*1.2);
+ float bands=1.-smoothstep(bandWidth,bandWidth*2.,bandDistance);
+ float bandMask=smoothstep(.07,.18,coastDepth)*(1.-smoothstep(.65,.95,coastDepth));
+ float bandBreakup=smoothstep(.26,.65,noise(p*1.3-uTime*.025));
+ c=mix(c,mix(uAqua,uFoam,.65),bands*bandMask*bandBreakup*.32);
 
  // A broken swash front travels shoreward across the real shallow bed.
  // Screen-space filtering keeps the narrow edge visible without shimmering.
@@ -218,7 +244,7 @@ void main(){
   float frontDepth=mix(.025,.25,surge);
   float width=max(.033,fwidth(localDepth)*1.4);
   float front=exp(-pow((localDepth-frontDepth)/width,2.));
-  vec2 drift=p*3.8+vec2(uTime*.12,-uTime*.09);
+  vec2 drift=p*3.8-uWindDirection.xz*uTime*.15;
   float flecks=noise(drift);
   float patches=noise(p*1.4+vec2(-uTime*.055,uTime*.025));
   float breakup=mix(.3,1.,smoothstep(.22,.72,patches));

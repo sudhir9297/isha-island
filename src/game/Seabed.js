@@ -5,7 +5,7 @@ import { SEABED_Y } from "./WorldConfig.js";
 
 export const SEABED_GRID = Object.freeze({ x: -28, z: -120, step: 0.25, columns: 829, rows: 529 });
 export const ISLAND_CENTER_Z = -12;
-export const ISLAND_SAND_PALETTE = Object.freeze({ dry: "#f9dc99", wet: "#dfbc80", wetBlend: 0.55 });
+export const ISLAND_SAND_PALETTE = Object.freeze({ dry: "#f2e6bf", wet: "#d5c99f", wetBlend: 0.55 });
 export const COAST_SAND_ALBEDO = Object.freeze(new Color(ISLAND_SAND_PALETTE.dry)
   .lerp(new Color(ISLAND_SAND_PALETTE.wet), ISLAND_SAND_PALETTE.wetBlend).toArray());
 export function shoreRadius(angle) {

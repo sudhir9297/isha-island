@@ -42,7 +42,7 @@ export default function AdiyogiIsland() {
     geometry.dispose(); wetting.dispose();
     Object.values(textures).forEach(texture => texture.dispose());
   }, [geometry, textures, wetting]);
-  return <mesh name="Adiyogi island — open ground" geometry={geometry} receiveShadow renderOrder={1}>
+  return <mesh userData={{ navigationIsland: true }} name="Adiyogi island — open ground" geometry={geometry} receiveShadow renderOrder={1}>
     <meshStandardMaterial vertexColors map={textures.color} bumpMap={textures.relief} bumpScale={.035}
       roughnessMap={textures.roughness} roughness={1} transparent depthWrite
       {...wetting.nodes} onBeforeCompile={wetting.apply} customProgramCacheKey={() => BEACH_WETTING_KEY} />

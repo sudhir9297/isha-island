@@ -15,6 +15,6 @@ const hullSide = varying(smoothstep(-0.045, 0.16, positionLocal.y)
 export const hullFill = materialColor.rgb.mul(hullSide).mul(0.18);
 export function gateStoneColor(material) {
   const sample = texture(material.map).rgb.dot(vec3(0.2126, 0.7152, 0.0722));
-  return uniform(material.color).mul(mix(0.78, 1.12, smoothstep(0.08, 0.7, sample)))
+  return uniform(material.color).mul(mix(0.9, 1.06, smoothstep(0.08, 0.7, sample)))
     .mul(mix(0.8, 1, smoothstep(-0.6, 0.2, varying(normalLocal.y))));
 }

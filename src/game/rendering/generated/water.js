@@ -133,7 +133,7 @@ const waterSunSpecular = /*@__PURE__*/ Fn( ( [ n, v, light, roughness ] ) => {
 	const nv = float(clamp( dot( n, v ), .001, 1. )).toVar(), nl = float(clamp( dot( n, light ), 0., 1. )).toVar();
 	const nh = float(clamp( dot( n, h ), 0., 1. )).toVar(), vh = float(clamp( dot( v, h ), 0., 1. )).toVar();
 	const alpha = float(roughness.mul( roughness )).toVar(), a2 = float(alpha.mul( alpha ).add( .0025 )).toVar();
-	const wind = vec3(vec3( .93, 0., .367 )).toVar();
+	const wind = vec3(vec3( 0.951056516, 0., - 0.309016994 )).toVar();
 	const tangent = vec3(normalize( wind.sub( n.mul( dot( wind, n ) ) ) )).toVar();
 	const bitangent = vec3(cross( n, tangent )).toVar();
 	const ax = float(sqrt( a2 ).mul( .75 )).toVar(), ay = float(sqrt( a2 ).div( .75 )).toVar();
@@ -225,6 +225,8 @@ const uSunReady = reference( 'value', 'float', uniforms[ 'uSunReady' ] );
 const uSunTexel = reference( 'value', 'vec2', uniforms[ 'uSunTexel' ] );
 const uSunDirection = reference('value', uniforms['uSunDirection']?.value?.isColor ? 'color' : 'vec3', uniforms['uSunDirection']);
 const uSunRadiance = reference('value', uniforms['uSunRadiance']?.value?.isColor ? 'color' : 'vec3', uniforms['uSunRadiance']);
+const uWindDirection = reference('value', uniforms['uWindDirection']?.value?.isColor ? 'color' : 'vec3', uniforms['uWindDirection']);
+const uWindStrength = reference( 'value', 'float', uniforms[ 'uWindStrength' ] );
 
 
 
@@ -507,7 +509,7 @@ const shade = /*@__PURE__*/ Fn( () => {
 
 		const radiance = vec3(under.rgb).toVar();
 		const totalWeight = float(1.).toVar();
-		const blurRadius = float(min( 1.4, viewPath.mul( .35 ) )).toVar();
+		const blurRadius = float(mix( .12, 1.65, smoothstep( .35, 2.8, viewPath ) )).toVar();
 
 		Loop( 4, ( { i } ) => {
 
@@ -543,7 +545,9 @@ const shade = /*@__PURE__*/ Fn( () => {
 	const skyUV = vec2(reflectionDirection.xz.div( max( .15, abs( reflectionDirection.y ) ) )).toVar();
 	const skyCloud = float(smoothstep( .7, .9, noise( skyUV.mul( .8 ).add( vec2( uTime.mul( .003 ), 0. ) ) ) )).toVar();
 	const sky = vec3(vec3( .012, .36, .64 ).add( vec3( .10, .055, .035 ).mul( skyCloud ).mul( .28 ) )).toVar();
-	const roughness = float(waterSurfaceRoughness( p, uTime )).toVar();
+	const windDrift = vec2(uWindDirection.xz.mul( uTime ).mul( .055 )).toVar();
+	const gust = float(noise( p.mul( .1 ).sub( windDrift ) ).add( noise( p.mul( .05 ).sub( windDrift.mul( .2 ) ) ) ).sub( 1. )).toVar();
+	const roughness = float(waterSurfaceRoughness( p, uTime ).add( gust.mul( uWindStrength ).mul( .035 ) )).toVar();
 	const sunSpecular = float(waterSunSpecular( surfaceNormal, viewDirection, uSunDirection, roughness )).toVar();
 
 	// The calm lagoon uses a filtered solar disk, with restrained reflected exposure.
@@ -551,6 +555,34 @@ const shade = /*@__PURE__*/ Fn( () => {
 	const reflectionShelter = float(sub( 1., smoothstep( .8, 2.2, floorDepth ) )).toVar();
 	const solarExposure = float(mix( .044, .22, reflectionShelter )).toVar();
 	c.assign( c.mul( sub( 1., fresnel ) ).add( sky.mul( fresnel ) ).add( uSunRadiance.mul( sunSpecular ).mul( solarExposure ) ) );
+
+	// Thin, broken contact foam follows captured submerged objects, not the floor.
+	// Undistorted depth keeps the edge attached to posts and rocks as waves move.
+
+	const contactColor = vec4(uUnderwater.sample( screen )).toVar();
+	const contactDepth = float(uDepth.sample( screen ).r).toVar();
+	const contactWorld = vec3(positionFromDepth( screen, contactDepth )).toVar();
+	const immersion = float(vWorld.y.sub( contactWorld.y )).toVar();
+	const contactWidth = float(max( .045, fwidth( immersion ).mul( 1.25 ) )).toVar();
+	const contact = float(sub( 1., smoothstep( .012, contactWidth, immersion ) ).mul( step( .001, immersion ) )).toVar();
+	const contactBreakup = float(smoothstep( .25, .65, noise( p.mul( 5. ).sub( uWindDirection.xz.mul( uTime ).mul( .15 ) ) ) )).toVar();
+
+	If( contactColor.a.greaterThan( .5 ).and( contactDepth.lessThan( .99999 ) ), () => {
+
+		c.assign( mix( c, uFoam, contact.mul( contactBreakup ).mul( .52 ) ) );
+
+	} );
+
+	// Broken contour bands move toward shallower water, ahead of the swash.
+
+	const coastDepth = float(max( 0., vWorld.y.sub( seabedHeight( p ) ) )).toVar();
+	const bandPhase = float(coastDepth.mul( 16. ).add( uTime.mul( .8 ) ).add( noise( p.mul( .35 ) ).mul( .85 ) )).toVar();
+	const bandDistance = float(abs( fract( bandPhase.div( 6.2831853 ) ).sub( .5 ) ).mul( 6.2831853 )).toVar();
+	const bandWidth = float(max( .17, fwidth( bandPhase ).mul( 1.2 ) )).toVar();
+	const bands = float(sub( 1., smoothstep( bandWidth, bandWidth.mul( 2. ), bandDistance ) )).toVar();
+	const bandMask = float(smoothstep( .07, .18, coastDepth ).mul( sub( 1., smoothstep( .65, .95, coastDepth ) ) )).toVar();
+	const bandBreakup = float(smoothstep( .26, .65, noise( p.mul( 1.3 ).sub( uTime.mul( .025 ) ) ) )).toVar();
+	c.assign( mix( c, mix( uAqua, uFoam, .65 ), bands.mul( bandMask ).mul( bandBreakup ).mul( .32 ) ) );
 
 	// A broken swash front travels shoreward across the real shallow bed.
 	// Screen-space filtering keeps the narrow edge visible without shimmering.
@@ -564,7 +596,7 @@ const shade = /*@__PURE__*/ Fn( () => {
 		const frontDepth = float(mix( .025, .25, surge )).toVar();
 		const width = float(max( .033, fwidth( localDepth ).mul( 1.4 ) )).toVar();
 		const front = float(exp( pow( localDepth.sub( frontDepth ).div( width ), 2. ).negate() )).toVar();
-		const drift = vec2(p.mul( 3.8 ).add( vec2( uTime.mul( .12 ), uTime.negate().mul( .09 ) ) )).toVar();
+		const drift = vec2(p.mul( 3.8 ).sub( uWindDirection.xz.mul( uTime ).mul( .15 ) )).toVar();
 		const flecks = float(noise( drift )).toVar();
 		const patches = float(noise( p.mul( 1.4 ).add( vec2( uTime.negate().mul( .055 ), uTime.mul( .025 ) ) ) )).toVar();
 		const breakup = float(mix( .3, 1., smoothstep( .22, .72, patches ) )).toVar();

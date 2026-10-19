@@ -23,7 +23,7 @@ export default function BrunoTree({ position }) {
     const gust = sin(positionWorld.x.mul(.1).add(positionWorld.z.mul(.08)).sub(clock.mul(.12)))
       .add(sin(positionWorld.z.mul(.05).sub(clock.mul(.035)))).mul(strength).mul(.35);
     leaves.opacityNode = texture(mask, rotateUV(uv(), gust.abs().mul(2.2))).r;
-    leaves.colorNode = mix(color('#b4b536'), color('#d8cf3b'), normalWorld.dot(vec3(22,28,-22).normalize()).smoothstep(0,1));
+    leaves.colorNode = mix(color('#58842e'), color('#b4ce58'), normalWorld.dot(vec3(22,28,-22).normalize()).smoothstep(0,1));
     leaves.maskShadowNode = texture(mask).r.greaterThan(.5);
     return { wood, leaves, palette };
   }, [mask, paletteSource, field]);
@@ -32,7 +32,7 @@ export default function BrunoTree({ position }) {
     Object.values(materials).forEach(m => m.dispose());
   }, [geometry, materials]);
   return <group name="Bruno Simon oak" position={position} dispose={null}>
-    <mesh geometry={geometry.wood} material={materials.wood} castShadow receiveShadow />
+    <mesh userData={{ walkingSolid: true }} geometry={geometry.wood} material={materials.wood} castShadow receiveShadow />
     <mesh geometry={geometry.leaves} material={materials.leaves} castShadow receiveShadow />
   </group>;
 }

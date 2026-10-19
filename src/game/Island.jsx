@@ -1,3 +1,4 @@
+import { useWindField } from "./WindContext.js";
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
@@ -8,7 +9,7 @@ import { makeIslandSandTextures } from "./IslandSand.js";
 import { useFrame } from "@react-three/fiber";
 import { createBeachWetting, BEACH_WETTING_KEY } from "./BeachWetting.js";
 import CoastalDetails from "./CoastalDetails.jsx";
-import { islandCover } from "./IslandHabitat.js";
+import { islandCover, arrivalPlantingWeight } from "./IslandHabitat.js";
 import MalaiVasal from "./MalaiVasal.jsx";
 import GateThreshold from "./GateThreshold.jsx";
 import { gateGround } from "./MalaiVasalGeometry.js";
@@ -29,9 +30,9 @@ function random(seed) {
 }
 
 const AUTHORED_GARDENS = [
-  { position: [-3.7, 0.42, 2.15], scale: 1.12, seed: 3211, flowers: false, composition: "porch" },
-  { position: [4.2, 0.42, 2.8], scale: 0.8, seed: 3423, flowers: false, composition: "steps" },
-  { position: [8.4, 0.42, 3.6], scale: 1, seed: 3706, flowers: true, composition: "harbour" },
+  { position: [-4.3, 0.42, 2.4], scale: 0.98, seed: 3211, flowers: false, composition: "porch" },
+  { position: [5.3, 0.42, 1.9], scale: 0.75, seed: 3423, flowers: false, composition: "steps" },
+  { position: [8.8, 0.42, 3.6], scale: 0.85, seed: 3706, flowers: true, composition: "harbour" },
 ];
 
 function sandGroundingSites() {
@@ -74,7 +75,8 @@ function makeSand() {
     sites = sandGroundingSites();
   const base = new THREE.Color(ISLAND_SAND_PALETTE.dry),
     wet = new THREE.Color(ISLAND_SAND_PALETTE.wet),
-    groundCover = new THREE.Color("#79b45c");
+    groundCover = new THREE.Color("#83b737"),
+    coverHighlight = new THREE.Color("#bedc55");
   for (let j = 0; j <= radial; j++)
     for (let i = 0; i <= segments; i++) {
       const r = (j / radial) * 1.08,
@@ -101,8 +103,12 @@ function makeSand() {
       const c = base
         .clone()
         .lerp(wet, Math.min(1, Math.max(0, (r - 0.81) / 0.27)) * ISLAND_SAND_PALETTE.wetBlend);
-      c.multiplyScalar(1 + 0.012 * Math.sin(x * 6.3 + z * 3.7) + 0.032 * Math.sin(x * 0.31 + z * 0.19) * Math.cos(z * 0.24));
-      c.lerp(groundCover, islandCover(x, z) * 0.86);
+      c.multiplyScalar(1 + 0.005 * Math.sin(x * 6.3 + z * 3.7) + 0.032 * Math.sin(x * 0.31 + z * 0.19) * Math.cos(z * 0.24));
+      // Broad pigment patches read at gameplay distance; the existing habitat
+      // mask keeps the arrival clearing and tidal margin free of grass.
+      const pigment = 0.5 + 0.5 * Math.sin(x * 0.85 + Math.sin(z * 1.2)) * Math.cos(z * 0.73 - x * 0.2);
+      const coverColor = groundCover.clone().lerp(coverHighlight, pigment * 0.7);
+      c.lerp(coverColor, islandCover(x, z) * 0.94);
       c.multiplyScalar(1 - contact);
       colors.push(
         c.r,
@@ -159,7 +165,7 @@ function canvasTexture(type) {
     // Six tonal strands remain distinct when a plank is only a few pixels deep.
     for (let i = 0; i < 6; i++) {
       const y = 11 + (i / 6) * 112 + rnd() * 5;
-      ctx.globalAlpha = i % 3 ? 0.12 + rnd() * 0.06 : 0.16;
+      ctx.globalAlpha = i % 3 ? 0.06 + rnd() * 0.03 : 0.08;
       ctx.strokeStyle = i % 3 ? "#624526" : "#fff8e7";
       ctx.lineWidth = i % 3 ? 6 + rnd() * 5 : 4 + rnd() * 2;
       ctx.beginPath();
@@ -243,8 +249,8 @@ function makeLeaf(length, width, lift, droop, seed = 1) {
     col = new THREE.Color(),
     rnd = random(seed);
   const leafFamily = Math.abs(seed) % 5;
-  const leafLights = ["#a6d96b", "#83ce60", "#58ba6b", "#a3d467", "#64c58a"];
-  const leafDarks = ["#33894b", "#288554", "#236f49", "#40964e", "#2a8b58"];
+  const leafLights = ["#acd443", "#88be38", "#61a633", "#b3cf48", "#83b843"];
+  const leafDarks = ["#42752f", "#356c32", "#315d2e", "#4c792a", "#3b7938"];
   const light = new THREE.Color(leafLights[leafFamily]),
     dark = new THREE.Color(leafDarks[leafFamily]);
   const shoulder = THREE.MathUtils.clamp(0.34 + rnd() * 0.17 + [0.025, -0.1, 0.015, -0.05, -0.01][leafFamily], 0.25, 0.54);
@@ -385,20 +391,22 @@ function frondCenter(t, length, lift, droop, sway) {
 
 function makePalmFrond(length, width, lift, droop, sway, seed) {
   const positions = [], colors = [], thinness = [], surface = [], indices = [], rnd = random(seed);
-  const light = new THREE.Color(seed % 2 ? "#a1d969" : "#7dce61");
-  const dark = new THREE.Color(seed % 3 ? "#358b48" : "#287d48");
-  const tone = 0.42 + rnd() * 0.31;
-  const roll = (rnd() - 0.5) * 1.02;
+  const light = new THREE.Color(seed % 2 ? "#c3dc55" : "#a3cf43");
+  const dark = new THREE.Color(seed % 3 ? "#42752f" : "#356c32");
+  const tone = 0.44 + rnd() * 0.16;
+  const roll = (rnd() - 0.5) * 0.7;
   const shoulder = 0.28 + rnd() * 0.18;
   const taper = 0.94 + rnd() * 0.5;
-  const fold = 0.065 + rnd() * 0.11;
+  const fold = 0.14 + rnd() * 0.12;
   const camber = 0.1 + rnd() * 0.12;
   const phase = rnd() * TAU;
   const edgeCurl = 0.2 + (0.5 + Math.sin(phase) * 0.5) * 0.15 + (seed % 4 === 0 ? 0.13 : 0);
   const widthScale = seed % 4 === 0 ? 0.76 : 1;
   const basePower = shoulder * taper / (1 - shoulder);
   const peak = Math.pow(shoulder, basePower) * Math.pow(1 - shoulder, taper);
-  const lobes = 5 + (seed % 4), rows = 37, columns = 7;
+  // Broad cartoon fronds need fewer subdivisions than fine serrated leaves.
+  // 448 triangles per frond instead of 864; keep the same crown mesh count.
+  const lobes = 5 + (seed % 3), rows = 29, columns = 5;
   // Rounded swept lobes retain the miniature's broad fronds. Their shallow cuts
   // vary across the two sides without a sawtooth outline or a sharp center fold.
   for (const side of [-1, 1]) {
@@ -425,7 +433,7 @@ function makePalmFrond(length, width, lift, droop, sway, seed) {
           root.z + reach * (0.21 + t * 0.16),
         );
         // A shared midrib pigment keeps the two separately shaped halves seamless.
-        const color = dark.clone().lerp(light, THREE.MathUtils.lerp(tone + 0.1, faceTone, lateral) + t * 0.08);
+        const color = dark.clone().lerp(light, THREE.MathUtils.lerp(tone + 0.18, faceTone, lateral) + Math.sin(t * Math.PI * 0.7) * 0.18);
         colors.push(color.r, color.g, color.b);
         surface.push(0.5 + side * lateral * 0.5, t);
         thinness.push((0.12 + lateral * lateral * 0.83) * THREE.MathUtils.smoothstep(t, 0.03, 0.27));
@@ -487,10 +495,10 @@ function Palm({ position, height = 5, lean = 0.8, seed = 1, scale = 1 }) {
         i === bladeCount - 1 || (i === bladeCount - 2 && seed % 2 === 0);
       const exposure = 0.5 + Math.cos(a - crownBias) * 0.5;
       const len = upright ? 1.1 + rnd() * 0.8 : 1.75 + rnd() * 0.92 + exposure * 0.25;
-      const drop = upright ? -0.35 - rnd() * 0.52 : 0.42 + rnd() * 0.92 + (1 - exposure) * 0.22;
-      const lift = upright ? 0.4 + rnd() * 0.33 : 0.22 + rnd() * 0.64 + exposure * 0.1;
+      const drop = upright ? -0.35 - rnd() * 0.52 : 0.52 + rnd() * 0.8 + (1 - exposure) * 0.22;
+      const lift = upright ? 0.4 + rnd() * 0.33 : 0.38 + rnd() * 0.54 + exposure * 0.12;
       const sway = (rnd() - 0.5) * 0.65;
-      const g = makePalmFrond(len, upright ? 0.27 + rnd() * 0.1 : 0.43 + rnd() * 0.15, lift, drop, sway, seed + i);
+      const g = makePalmFrond(len, upright ? 0.34 + rnd() * 0.1 : 0.55 + rnd() * 0.14, lift, drop, sway, seed + i);
       g.rotateY(a);
       g.translate(top.x, top.y, top.z);
       addLeafWind(g, top, len);
@@ -521,7 +529,7 @@ function Palm({ position, height = 5, lean = 0.8, seed = 1, scale = 1 }) {
   useFoliageDisposal(data);
   return (
     <group ref={windRoot} position={position} scale={scale}>
-      <mesh geometry={data.trunk} castShadow receiveShadow {...wind.mesh}>
+      <mesh userData={{ walkingSolid: true }} geometry={data.trunk} castShadow receiveShadow {...wind.mesh}>
         <meshStandardMaterial color="#ac8758" roughness={1} {...wind.nodes} onBeforeCompile={wind.shader} customProgramCacheKey={wind.key} />
       </mesh>
       <mesh geometry={data.rings} castShadow {...wind.mesh}>
@@ -532,24 +540,16 @@ function Palm({ position, height = 5, lean = 0.8, seed = 1, scale = 1 }) {
           vertexColors
           side={THREE.DoubleSide}
           roughness={0.71}
+          emissive="#799b29" emissiveIntensity={0.08}
           {...wind.leafNodes} onBeforeCompile={wind.leafShader}
           customProgramCacheKey={wind.leafKey}
         />
       </mesh>
       <mesh geometry={data.stems} {...wind.leafMesh}>
-        <meshStandardMaterial color="#7cbd59" roughness={0.82} {...wind.stemNodes} onBeforeCompile={wind.stemShader} customProgramCacheKey={wind.stemKey} />
+        <meshStandardMaterial color="#56a56b" roughness={0.82} {...wind.stemNodes} onBeforeCompile={wind.stemShader} customProgramCacheKey={wind.stemKey} />
       </mesh>
       {[0, 1, 2].map((i) => (
-        <mesh
-          key={i}
-          position={[
-            data.top.x + Math.sin(i * 2.1) * 0.2,
-            height - 0.15,
-            data.top.z + Math.cos(i * 2.1) * 0.2,
-          ]}
-          castShadow
-          {...wind.mesh}
-        >
+        <mesh key={i} position={[data.top.x + Math.sin(i * 2.1) * 0.2, height - 0.15, data.top.z + Math.cos(i * 2.1) * 0.2]} castShadow {...wind.mesh}>
           <sphereGeometry args={[0.19, 9, 6]} />
           <meshStandardMaterial color={i % 2 ? "#7e6a33" : "#887437"} {...wind.nodes} onBeforeCompile={wind.shader} customProgramCacheKey={wind.key} />
         </mesh>
@@ -668,7 +668,7 @@ function PlantBed({ position, scale = 1, seed = 1, flowers = true, composition }
     if (flowers) blooms.forEach(([x, y, z, size, form], i) => {
       if (form === 2) {
         // Closed buds break up the repeated open-flower silhouette.
-        const bud = addColors(new THREE.SphereGeometry(1, 10, 8), "#e58965");
+        const bud = addColors(new THREE.SphereGeometry(1, 10, 8), "#ed7046");
         bud.deleteAttribute("uv");
         bud.scale(0.105 * size, 0.19 * size, 0.1 * size);
         bud.rotateZ(-0.22);
@@ -685,7 +685,7 @@ function PlantBed({ position, scale = 1, seed = 1, flowers = true, composition }
           (form === 1 ? 0.29 : 0.32) * size * (0.94 + petalRandom() * 0.13),
           (form === 1 ? 0.105 : 0.15) * size * (0.94 + petalRandom() * 0.14),
           (form === 1 ? 0.075 : 0.13) * size * (0.82 + petalRandom() * 0.3),
-          form === 1 ? "#fff1cf" : i % 2 ? "#f7b981" : "#ef9e71",
+          form === 1 ? "#fff1cf" : i % 2 ? "#ffa352" : "#f67e47",
           petalSeed,
         );
         g.rotateY(a + (form === 1 ? 0.2 : 0));
@@ -732,9 +732,9 @@ function Broadleaf({ position, scale = 1, seed = 1 }) {
         r = 0.1 + rnd() * 0.7;
       const g = makeLeaf(
         1 + rnd() * 0.5,
-        0.38 + rnd() * 0.16,
-        0.22,
-        0.25,
+        0.46 + rnd() * 0.16,
+        0.32,
+        0.3,
         seed + i,
       );
       g.rotateX((rnd() - 0.6) * 0.7);
@@ -757,7 +757,7 @@ function Broadleaf({ position, scale = 1, seed = 1 }) {
   useFoliageDisposal(data);
   return (
     <group ref={windRoot} position={position} scale={scale}>
-      <mesh position={[0, 1, 0]} castShadow {...wind.mesh}>
+      <mesh userData={{ walkingSolid: true }} position={[0, 1, 0]} castShadow {...wind.mesh}>
         <cylinderGeometry args={[0.09, 0.15, 2, 7]} />
         <meshStandardMaterial color="#746246" {...wind.nodes} onBeforeCompile={wind.shader} customProgramCacheKey={wind.key} />
       </mesh>
@@ -824,8 +824,8 @@ function Pier({ wood }) {
   const deck = useMemo(() => {
     const rnd = random(779);
     const planks = Array.from({ length: 26 }, (_, i) => {
-      const pigment = new THREE.Color(i % 4 === 0 ? "#d1a567" : "#dbb77b").multiplyScalar(0.88 + rnd() * 0.25);
-      const g = harborTimberGeometry(2.45 + Math.sin(i * 4.4) * 0.07, 0.13, 0.23, pigment);
+      const pigment = new THREE.Color(i % 4 === 0 ? "#cf994f" : "#dfae65").multiplyScalar(0.88 + rnd() * 0.25);
+      const g = harborTimberGeometry(2.85 + Math.sin(i * 4.4) * 0.07, 0.13, 0.23, pigment);
       g.translate(0, 0.53, i * 0.25 - 0.15);
       return g;
     });
@@ -835,7 +835,7 @@ function Pier({ wood }) {
       const xIsland = 7 - Math.sin(0.16) * z;
       const zIsland = 7.15 + Math.cos(0.16) * z;
       const y = Math.max(0.53, gateGround(xIsland, zIsland) + 0.09);
-      const g = harborTimberGeometry(2.38 - i * 0.025, 0.14, 0.24, "#c5a574");
+      const g = harborTimberGeometry(2.78 - i * 0.025, 0.14, 0.24, "#d4a15c");
       g.translate(0, y, z); planks.push(g);
     }
     return joined(planks);
@@ -844,20 +844,20 @@ function Pier({ wood }) {
     <group position={[DOCK.x, 0, DOCK.z - CENTER_Z]} rotation={[0, DOCK.rotation, 0]}>
       {/* The pier extends beyond the south shoreline. */}
       <mesh geometry={deck} userData={{ crabSurface: true }} receiveShadow castShadow>
-        <meshStandardMaterial vertexColors map={wood} roughness={0.51} bumpMap={wood} bumpScale={0.018} />
+        <meshStandardMaterial vertexColors map={wood} roughness={0.72} bumpMap={wood} bumpScale={0.009} />
       </mesh>
       {[-1, 1].map((x) => (
-        <mesh key={x} position={[x * 0.96, 0.29, 3]} castShadow>
+        <mesh key={x} position={[x * 1.16, 0.29, 3]} castShadow>
           <boxGeometry args={[0.16, 0.25, 6.7]} />
-          <meshStandardMaterial color="#8d6237" roughness={0.82} />
+          <meshStandardMaterial color="#956034" roughness={0.82} />
         </mesh>
       ))}
       {[-1, 1].flatMap((side) =>
         [0, 2.2, 4.4, 6.2].map((z) => (
-          <group key={`${side}${z}`} position={[side * 1.12, 0, z]}>
-            <mesh position={[0, 0.4, 0]} castShadow>
+          <group key={`${side}${z}`} position={[side * 1.32, 0, z]}>
+            <mesh userData={{ walkingSolid: true }} position={[0, 0.4, 0]} castShadow>
               <cylinderGeometry args={[0.105, 0.12, 1.6, 8]} />
-              <meshStandardMaterial color="#987348" map={wood} bumpMap={wood} bumpScale={0.012} roughness={0.76} />
+              <meshStandardMaterial color="#af793f" map={wood} bumpMap={wood} bumpScale={0.012} roughness={0.76} />
             </mesh>
             <mesh position={[0, 1.21, 0]}>
               <cylinderGeometry args={[0.14, 0.14, 0.07, 8]} />
@@ -871,9 +871,9 @@ function Pier({ wood }) {
           <Rope
             key={`${side}-${z}`}
             points={[
-              [side * 1.12, 0.95, z],
-              [side * 1.13, 0.77, z + (i === 2 ? 0.9 : 1.1)],
-              [side * 1.12, 0.95, i === 2 ? 6.2 : z + 2.2],
+              [side * 1.32, 0.95, z],
+              [side * 1.33, 0.77, z + (i === 2 ? 0.9 : 1.1)],
+              [side * 1.32, 0.95, i === 2 ? 6.2 : z + 2.2],
             ]}
           />
         )),
@@ -902,7 +902,7 @@ function BeachDetails() {
       {specs.map((s, i) => (
         <group key={i} position={[s.x, 0.2, s.z]} rotation={[0, s.a, 0]}>
           {s.kind === 0 ? (
-            <mesh scale={[1.4, 0.6, 1]} userData={{ crabSurface: true }} castShadow>
+            <mesh scale={[1.4, 0.6, 1]} userData={{ crabSurface: true, walkingSolid: true }} castShadow>
               <icosahedronGeometry args={[s.size, 0]} />
               <meshStandardMaterial
                 color={i % 2 ? "#a9a694" : "#dad3b8"}
@@ -933,8 +933,8 @@ function GateGrove() {
     return <group key={`${side}-${i}`}>
       <Broadleaf position={[x, y, z]} scale={(side < 0 ? 1.16 : 0.78) + i * 0.06} seed={1640 + i * 77 + side} />
       <PlantBed position={[x, y, z]} scale={0.85} seed={2840 + i * 71 + side} flowers={false} />
-      <mesh position={[x, y + 0.18, z]} scale={[0.83, 0.4, 0.68]} castShadow receiveShadow>
-        <icosahedronGeometry args={[1, 1]} /><meshStandardMaterial color="#aabd89" roughness={0.93} flatShading />
+      <mesh userData={{ walkingSolid: true }} position={[x, y + 0.18, z]} scale={[0.83, 0.4, 0.68]} castShadow receiveShadow>
+        <icosahedronGeometry args={[1, 1]} /><meshStandardMaterial color="#b7a29b" roughness={0.93} flatShading />
       </mesh>
     </group>;
   }));
@@ -944,8 +944,9 @@ export default function Island() {
   const sandProbe = import.meta.env.DEV ? new URLSearchParams(window.location.search).get("sandProbe") : null;
   const sand = useMemo(() => makeSand(), []);
   const sandTextures = useMemo(() => makeIslandSandTextures(sandGroundingSites()), []);
+  const beachWind = useWindField();
   const beachWetting = useMemo(() => createBeachWetting(), []);
-  useFrame(({ clock }) => beachWetting.advance(clock.elapsedTime));
+  useFrame(({ clock }) => beachWetting.advance(beachWind ? beachWind.time.value : clock.elapsedTime));
   useEffect(() => () => beachWetting.dispose(), [beachWetting]);
   useEffect(() => () => Object.values(sandTextures).forEach(texture => texture.dispose()), [sandTextures]);
   const wood = useMemo(() => canvasTexture("wood"), []);
@@ -962,6 +963,7 @@ export default function Island() {
       if (z > -5 && z < 4 && x > -3 && x < 3.6) continue;
       // Leave the dock-to-gate approach as an open sandy clearing.
       if (z > 2.5 && x > -3.7) continue;
+      if (arrivalPlantingWeight(x, z) < 1) continue;
       list.push({
         position: [x, 0.43, z],
         scale: 0.6 + rnd() * 0.38,
@@ -973,7 +975,7 @@ export default function Island() {
     return list;
   }, []);
   return (
-    <group position={[0, 0, CENTER_Z]}>
+    <group userData={{ navigationIsland: true }} position={[0, 0, CENTER_Z]}>
       <mesh geometry={sand} receiveShadow renderOrder={1}>
         <meshStandardMaterial
           vertexColors
@@ -1006,11 +1008,11 @@ export default function Island() {
         [8.3, 0.33, -2.8, 0.65, 0.48, 0.5],
         [7.8, 0.34, -2.25, 0.38, 0.32, 0.46],
         [-4.8, 0.45, -5.8, 0.65, 0.5, 0.54],
-        [-2.65, 0.42, 3.45, 0.38, 0.26, 0.34],
+        [-4.6, 0.42, 3.6, 0.38, 0.26, 0.34],
       ].map(([x, y, z, sx, sy, sz], i) => (
         <mesh
           key={`rock${i}`}
-          userData={{ crabSurface: true }}
+          userData={{ crabSurface: true, walkingSolid: true }}
           position={[x, gateTerrainHeight(x, z, y), z]}
           scale={[sx, sy, sz]}
           rotation={[0.12, i * 1.1, 0.05]}
@@ -1020,7 +1022,7 @@ export default function Island() {
           <icosahedronGeometry args={[1, 1]} />
           <meshStandardMaterial
             color={
-              i % 3 === 0 ? "#cccd9b" : i % 3 === 1 ? "#acbe91" : "#e0cc9a"
+              i % 3 === 0 ? "#d6c4ad" : i % 3 === 1 ? "#b7a29b" : "#e4cfb0"
             }
             roughness={0.76}
             flatShading

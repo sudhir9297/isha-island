@@ -1,6 +1,6 @@
 # Port
 
-A small boat exploration game built with Vite, React, React Three Fiber, Three.js and Drei. It has a tropical harbor, submerged coral gardens, three selectable boats, schooling and reef fish, a manta ray, a shark, wind-blown foliage, and four places to discover.
+A small boat exploration game built with Vite, React, React Three Fiber, Three.js and Drei. It has a tropical harbor, submerged coral gardens, a wooden rowboat and an unlockable motorboat, schooling and reef fish, a manta ray, a shark, wind-blown foliage, and four places to discover.
 
 ## Run locally
 
@@ -19,11 +19,11 @@ Open the local URL printed by Vite. `npm run preview` serves the production buil
 - Click open water to sail toward it. Manual steering cancels the destination.
 - Touch steering controls appear on narrow screens.
 - M opens the map. Escape closes a panel. Opening a panel pauses sailing.
-- Settings offers boat selection, sea audio, a free orbit camera, render quality and a return to harbor. Changing boats returns to the starting position.
+- Settings offers sea audio, a free orbit camera, render quality, return to harbor and restart journey.
 
-The Tide skiff is nimble, the Reef runner accelerates faster and has a wider turning arc, and the Harbour launch has a canopy and gentler handling. All three support forward, reverse, braking, drift, steering and click navigation.
+Chapter One begins offshore in a wooden rowboat with animated oars. Land at Malai Vasal and walk through the gate to throw off the luggage, experience the relief animation and unlock the Tide skiff. See [Chapter One](docs/chapter-one.md).
 
-Field notes are saved in the browser. Audio starts only when enabled. Fonts and scene assets are local.
+A normal reload starts a fresh journey at the sea starting point. Add `?resume=1` (or `&resume=1` alongside `?debug`) to explicitly continue the saved journey. Journey snapshots and field notes are stored in the browser; in-session menus and debug rehearsals do not restart the arrival. Audio starts only when enabled. Fonts and scene assets are local.
 
 ## Implementation
 

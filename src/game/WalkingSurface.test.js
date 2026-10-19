@@ -41,3 +41,21 @@ test('saved player on the dock resumes on the planks',()=>{
   assert.equal(restored.mode,'walking');assert.equal(restored.position.y,DOCK.deckHeight);
   assert.equal(restored.position.z,end.z);
 });
+
+test('slow boats can step directly onto either side of the dock and resume there', async()=>{
+  const {landingPoint}=await import('./JourneyState.js');
+  for(const across of [-2.8,2.8]) {
+    const b=boat(),p=dockWorldPoint(across,4.8);b.position.set(p.x,0,p.z);b.heading=0;
+    const landing=landingPoint(b);assert.ok(landing);assert.equal(landing.y,DOCK.deckHeight);
+    assert.equal(walkingSurfaceHeight(landing.x,landing.z),DOCK.deckHeight);
+    const s=createJourney();stepJourney(s,b,{interact:true},.025);
+    assert.equal(s.mode,'walking');
+    assert.ok(parseJourneySave(JSON.stringify(snapshotJourney(b,s))));
+    b.speed=2;assert.equal(landingPoint(b),null);
+  }
+});
+test('letter is centered across the dock at its outer end', async()=>{
+  const {DOCK_NOTE}=await import('./Discoveries.js');
+  assert.deepEqual(DOCK_NOTE,dockWorldPoint(0,DOCK.end-.35));
+  assert.equal(walkingSurfaceHeight(DOCK_NOTE.x,DOCK_NOTE.z),DOCK.deckHeight);
+});

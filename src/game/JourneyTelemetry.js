@@ -1,6 +1,6 @@
 // Keep high-frequency simulation refs separate from the scalar UI snapshots.
-const BOAT_FIELDS = ['x', 'z', 'heading', 'speed', 'beached', 'beachedTime'];
-const JOURNEY_FIELDS = ['noteRead', 'shellRevealed', 'shellFound', 'nearDiscovery', 'activeDiscovery', 'mode', 'canLand', 'released', 'releaseTime', 'nearBoat', 'nearRest', 'completed', 'restTime'];
+const BOAT_FIELDS = ['x', 'z', 'heading', 'speed', 'beached', 'beachedTime', 'openingVoyage'];
+const JOURNEY_FIELDS = ['performingAction', 'nearBench', 'benchSeated', 'nearActivity', 'crabInvited', 'crabHint', 'noteRead', 'shellRevealed', 'shellFound', 'nearDiscovery', 'activeDiscovery', 'mode', 'canLand', 'released', 'releaseTime', 'nearBoat', 'nearRest', 'completed', 'restTime', 'chapterStep'];
 
 export function updateBoatTelemetry(previous, data) {
   if (BOAT_FIELDS.every(key => Object.is(previous[key], data[key]))) return previous;

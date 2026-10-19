@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { updateBoatTelemetry, updateJourneyStatus } from './JourneyTelemetry.js';
 
-const boat = {x: 0, z: -2, heading: 1, speed: 0, beached: false, beachedTime: 0};
+const boat = {x: 0, z: -2, heading: 1, speed: 0, beached: false, beachedTime: 0, openingVoyage: false};
 const journey = {mode: 'aboard', canLand: false, released: false, releaseTime: 0, nearBoat: false, nearRest:false, completed:false, restTime:0};
 
 test('repeated idle and paused samples retain the same UI objects', () => {

@@ -1,3 +1,4 @@
+import { windDirection } from "./WindField.js";
 import { seabedSampleAt } from "./Seabed.js";
 
 export const WAVE_FADE_START = 180;
@@ -180,7 +181,7 @@ export function waterSunSpecular(normal, view, sun, roughness = 0.38) {
   if (nl === 0) return 0;
   const nh = clamp(dot(normal, half), 0, 1), vh = clamp(dot(view, half), 0, 1);
   const alpha = roughness * roughness, a2 = alpha * alpha + 0.0025;
-  const wind = [0.93, 0, 0.367], projection = dot(wind, normal);
+  const wind = [windDirection.x, 0, windDirection.z], projection = dot(wind, normal);
   const tangent = wind.map((value, i) => value - normal[i] * projection);
   const tangentLength = Math.hypot(...tangent);
   for (let i = 0; i < 3; i++) tangent[i] /= tangentLength;
@@ -277,7 +278,7 @@ float waterSunSpecular(vec3 n,vec3 v,vec3 light,float roughness){
  float nv=clamp(dot(n,v),.001,1.),nl=clamp(dot(n,light),0.,1.);
  float nh=clamp(dot(n,h),0.,1.),vh=clamp(dot(v,h),0.,1.);
  float alpha=roughness*roughness,a2=alpha*alpha+.0025;
- vec3 wind=vec3(.93,0.,.367);
+ vec3 wind=vec3(${windDirection.x.toFixed(9)},0.,${windDirection.z.toFixed(9)});
  vec3 tangent=normalize(wind-n*dot(wind,n));
  vec3 bitangent=cross(n,tangent);
  float ax=sqrt(a2)*.75,ay=sqrt(a2)/.75;

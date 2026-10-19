@@ -1,3 +1,26 @@
+import {COSMETIC_KEY, availablePennant} from './game/BoatCosmetics.js';
+import CollectionArrival from './game/CollectionArrival.jsx';
+import { NEEM_SEAT_EXIT } from './game/NeemSeat.js';
+import SandTracks from './game/SandTracks.jsx';
+import DockFish from './game/DockFish.jsx';
+import { walkingSurfaceHeight } from './game/WalkingSurface.js';
+import { ACTIVITIES } from './game/IslandActivities.js';
+import IslandActivities from './game/IslandActivities.jsx';
+import Collection from './game/Collection.jsx';
+import IslandKeepsakes from './game/IslandKeepsakes.jsx';
+import { COLLECTION_KEY, readCollection, collectItem } from './game/Keepsakes.js';
+import { rememberHint } from './game/MessageFlow.js';
+import MapOrbitSurface from './game/MapOrbitSurface.jsx';
+import { createMapOrbit, turnMapOrbit } from './game/MapOrbit.js';
+import MapIslandMarkers from './game/MapIslandMarkers.jsx';
+import { MAP_DESTINATIONS } from './game/MapDestinations.js';
+import { SANCTUARY_LIGHT, SANCTUARY_WATER } from './game/ArtDirection.js';
+import { ChapterOneHUD } from './game/ChapterOne.jsx';
+import { createChapterOne } from './game/ChapterOne.js';
+import useJourneySave from './game/useJourneySave.js';
+import IslandDirections, { IslandDirectionTracking } from './game/IslandDirections.jsx';
+import StartupOverlay from './game/StartupOverlay.jsx';
+import { createStartupSequence } from './game/StartupSequence.js';
 import { WeatherLighting, GrassInteraction, DriftingLeaves } from './game/Atmosphere.jsx';
 import { DockPennants } from './game/WindCloth.jsx';
 import NeemIsland from './game/NeemIsland.jsx';
@@ -17,7 +40,6 @@ import { NeutralToneMapping, PCFShadowMap, Vector3 } from "three";
 import AdiyogiIsland from "./game/AdiyogiIsland.jsx";
 import Island from "./game/Island";
 import BeachCrab from "./game/BeachCrab.jsx";
-import useJourneySave from "./game/useJourneySave.js";
 import useInteractionMode from "./game/useInteractionMode.js";
 import InteractionMarker from "./game/InteractionMarker.jsx";
 import { gateGround } from "./game/MalaiVasalGeometry.js";
@@ -44,10 +66,8 @@ import AutoQuality from "./game/AutoQuality.jsx";
 import SceneAudio from "./game/SceneAudio.jsx";
 import SceneStartup from "./game/SceneStartup.jsx";
 import SceneBoundary from "./game/SceneBoundary";
-import AtollMap from "./game/AtollMap";
 import { resetBoatToWater } from "./game/BoatPhysics.js";
-import { START } from "./game/WorldConfig";
-import { BOATS, boatProfile } from "./game/BoatProfiles";
+import { START, HARBOUR, OPENING_APPROACH } from "./game/WorldConfig";
 import { diagnosticsOptions } from "./game/Diagnostics.js";
 const FrameMetrics = lazy(() => import("./game/FrameMetrics.jsx"));
 const CaptureTools = lazy(() => import("./game/CaptureTools.jsx"));
@@ -58,6 +78,12 @@ const StaticWildlife = memo(Wildlife);
 const StaticBirds = memo(Seabirds);
 
 export default function App() {
+  const [keepsakes, setKeepsakes] = useState(() => { try { return readCollection(localStorage); } catch { return []; } });
+  const [pennant,setPennant]=useState(()=>{try{return availablePennant(localStorage.getItem(COSMETIC_KEY),keepsakes);}catch{return null;}});
+  const equipPennant=id=>{const next=availablePennant(id,keepsakes);setPennant(next);try{if(next)localStorage.setItem(COSMETIC_KEY,next);else localStorage.removeItem(COSMETIC_KEY);}catch{/* Device storage may be unavailable. */}};
+  const collectionRef = useRef(keepsakes);
+  const [collectedNotice,setCollectedNotice]=useState(null);
+  const finishCollectionNotice=useCallback(()=>setCollectedNotice(null),[]);
   const touchInteraction = useInteractionMode();
   const { debug, profiling } = diagnosticsOptions(window.location.search);
   const [panel, setPanel] = useState(null),
@@ -66,16 +92,22 @@ export default function App() {
     [quality, setQuality] = useState("high"),
     [qualityMode, setQualityMode] = useState(() => {
       try { const saved = localStorage.getItem('port.quality'); return ['auto', 'high', 'balanced'].includes(saved) ? saved : 'auto'; } catch { return 'auto'; }
-    }),
-    [boatId, setBoatId] = useState("skiff");
+    });
+  const [boatId, setBoatId] = useState("rowboat");
   useEffect(() => { try { localStorage.setItem('port.quality', qualityMode); } catch {} }, [qualityMode]);
   const [sceneReady, setSceneReady] = useState(false);
+  const [assetsReady, setAssetsReady] = useState(false);
+  const [startupPhase, setStartupPhase] = useState('loading');
+  const startup = useRef(createStartupSequence({ resume: new URLSearchParams(window.location.search).get("resume") === "1" }));
+  const skipIntro = useCallback(() => { startup.current.skipRequested = true; }, []);
+  const startJourney = useCallback(() => { startup.current.startRequested = true; }, []);
+  const reportStartup = useCallback(phase => { setStartupPhase(phase); if (phase === 'complete') setSceneReady(true); }, []);
   const [startupError, setStartupError] = useState('');
   useEffect(() => {
-    if (sceneReady) return;
+    if (assetsReady) return;
     const timeout = setTimeout(() => setStartupError(previous => previous || 'Loading is taking longer than expected. Check your connection and try again.'), 45000);
     return () => clearTimeout(timeout);
-  }, [sceneReady]);
+  }, [assetsReady]);
   const [showHint, setShowHint] = useState(true);
   useEffect(() => {
     if (!sceneReady) return;
@@ -85,6 +117,18 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => { clearTimeout(timer); window.removeEventListener("keydown", onKey); };
   }, [sceneReady]);
+  const [mapSelection, setMapSelection] = useState(null);
+  const mapMarkers = useRef([]);
+  const mapOrbit = useRef(createMapOrbit());
+  const mapBackButton = useRef(null);
+  useEffect(() => {
+    if (panel !== 'map') return;
+    const handle = requestAnimationFrame(() => {
+      (mapSelection ? mapBackButton.current : mapMarkers.current[0])?.focus();
+    });
+    return () => cancelAnimationFrame(handle);
+  }, [panel, mapSelection]);
+  const selectedIsland = MAP_DESTINATIONS.find(d => d.id === mapSelection);
   const [mapAction, setMapAction] = useState({ type: "island", id: 0 });
   const [captureFocus, setCaptureFocus] = useState("scene");
   const [found, setFound] = useState(() => {
@@ -114,15 +158,40 @@ export default function App() {
     heading: START.heading,
     speed: 0,
     resetId: 0,
-    boatId: "skiff",
+    boatId: "rowboat",
+    openingVoyage: true,
+    destination: new Vector3(OPENING_APPROACH.x, 0, OPENING_APPROACH.z),
   });
-  const journey = useRef(createJourney(0));
+  const journey = useRef({ ...createJourney(0), keepsakes, chapter: createChapterOne() });
+  const claimHint = useCallback(label => rememberHint(journey.current.seenHints, label), []);
   const rehearsalBackup = useRef(null);
   const [nearbyPlace, setNearbyPlace] = useState(null);
   useJourneySave({boatState, journey, onBoat:setBoatId, ready:sceneReady});
-  const [journeyStatus, setJourneyStatus] = useState({mode: "aboard", canLand: false, released: false});
-  const reportJourneyStatus = useCallback((data) => setJourneyStatus(previous => updateJourneyStatus(previous, data)), []);
+  const [journeyStatus, setJourneyStatus] = useState({chapterStep:'arrive',mode: "aboard", canLand: false, released: false});
+  const reportJourneyStatus = useCallback((data) => {
+    const s = journey.current;
+    if (!s.rehearsal) {
+      let next = collectionRef.current;
+      for (const id of s.keepsakes ?? []) next = collectItem(next, id);
+      if (s.shellFound) next = collectItem(next, 'shell');
+      if (next !== collectionRef.current) {
+        const newItem=next.find(id=>!collectionRef.current.includes(id));
+        if(newItem)setCollectedNotice(newItem);
+        collectionRef.current = next; setKeepsakes(next);
+        try { localStorage.setItem(COLLECTION_KEY, JSON.stringify(next)); } catch {}
+      }
+      s.keepsakes = next;
+      if (next.includes('shell')) { s.shellFound = true; s.shellRevealed = true; }
+    }
+    setJourneyStatus(previous => updateJourneyStatus(previous, data));
+  }, []);
+  useEffect(() => {
+    journey.current.keepsakes = collectionRef.current;
+    try { localStorage.setItem(COLLECTION_KEY, JSON.stringify(collectionRef.current)); } catch {}
+  }, []);
   const compassElement = useRef();
+  const islandDirectionsElement = useRef();
+  const showIslandDirections = sceneReady && !paused && !freeCamera && captureFocus === "scene" && journeyStatus.mode === "aboard";
   const sunRef = useRef();
   const reefField = useRef(null);
   const wildlifeState = useRef({});
@@ -171,7 +240,7 @@ export default function App() {
   useEffect(() => {
     const key = (e) => {
       if (
-        e.repeat ||
+        !sceneReady || e.repeat ||
         e.target.closest("input,select,textarea,[contenteditable]")
       )
         return;
@@ -180,13 +249,16 @@ export default function App() {
         setSelected(null);
       }
       if (e.code === "KeyR" && !panelRef.current) resetBoatToWater(boatState.current);
+      if (e.code === "KeyI") setPanel(p => p === "collection" ? null : "collection");
       if (e.code === "KeyM") {
+        setMapSelection(null);
+        setFreeCamera(false); setCaptureFocus("scene");
         setPanel((p) => (p === "map" ? null : "map"));
       }
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, []);
+  }, [sceneReady]);
   const discover = useCallback((id) => {
     setFound((previous) =>
       previous.includes(id) ? previous : [...previous, id],
@@ -196,15 +268,15 @@ export default function App() {
     noticeTimer.current = setTimeout(() => setNotice(null), 5500);
   }, []);
   function reset() {
-    boatState.current.safeWater = { ...START };
+    boatState.current.safeWater = { ...HARBOUR };
     resetBoatToWater(boatState.current);
-    boatState.current.position.set(START.x, 0, START.z);
-    boatState.current.heading = START.heading;
+    boatState.current.position.set(HARBOUR.x, 0, HARBOUR.z);
+    boatState.current.heading = HARBOUR.heading;
     boatState.current.speed = 0;
     boatState.current.resetId += 1;
-    const {released, completed, releaseOrigin, noteRead, shellRevealed, shellFound} = journey.current;
+    const {released, completed, releaseOrigin, noteRead, crabInvited, seenHints, shellRevealed, shellFound, chapter} = journey.current;
     Object.assign(journey.current, createJourney(boatState.current.resetId), {
-      released, completed, releaseOrigin, noteRead, shellRevealed, shellFound, releaseTime: released ? 8 : 0,
+      keepsakes: collectionRef.current, chapter, released, completed, releaseOrigin, noteRead, crabInvited, seenHints, shellRevealed, shellFound, releaseTime: released ? 8 : 0,
     });
     setPanel(null);
     setFreeCamera(false);
@@ -212,7 +284,10 @@ export default function App() {
   function restartJourney() {
     try { localStorage.removeItem(JOURNEY_SAVE_KEY); } catch {}
     reset();
-    Object.assign(journey.current,createJourney(boatState.current.resetId));
+    Object.assign(boatState.current, { heading: START.heading, openingVoyage: true, navigation: undefined, safeWater: { ...START }, destination: new Vector3(OPENING_APPROACH.x, 0, OPENING_APPROACH.z) });
+    boatState.current.position.set(START.x, 0, START.z);
+    Object.assign(journey.current,createJourney(boatState.current.resetId), {chapter:createChapterOne(), keepsakes:collectionRef.current});
+    boatState.current.boatId="rowboat";setBoatId("rowboat");
     setJourneyStatus({mode:'aboard',canLand:false,released:false,completed:false,releaseTime:0,restTime:0});
     setShowHint(true);
   }
@@ -224,10 +299,26 @@ export default function App() {
     if (overlook) { journey.current.position.set(0,gateGround(0,-6.2),-18.2); Object.assign(journey.current,{released:true,releaseTime:8,releaseOrigin:{x:0,y:gateGround(0,-.8),z:-12.8}}); }
     setCaptureFocus('scene'); setFreeCamera(false); setPanel(null);
   }
-  function rehearseDiscovery() {
+  function rehearseDiscovery(stage) {
     if (!rehearsalBackup.current) rehearsalBackup.current = snapshotJourney(boatState.current, journey.current);
     Object.assign(journey.current, createJourney(boatState.current.resetId), { mode: 'walking', rehearsal: true, rehearsalManual: true });
     journey.current.position.set(DOCK_NOTE.x, .595, DOCK_NOTE.z - .5);
+    if (ACTIVITIES[stage]) {
+      const p = ACTIVITIES[stage];
+      journey.current.position.set(p.x, walkingSurfaceHeight(p.x,p.z) ?? 0, p.z);
+    }
+    if (stage === 'neem-seat') {
+      const p=NEEM_SEAT_EXIT;
+      journey.current.position.set(p.x,walkingSurfaceHeight(p.x,p.z),p.z);
+    }
+    if (stage === 'shell') {
+      Object.assign(journey.current, { noteRead: true, crabInvited: true, shellRevealed: true });
+      journey.current.position.set(-3.5, gateGround(-3.5,6.3), -5.7);
+    }
+    if (stage === 'crab') {
+      journey.current.noteRead = true;
+      journey.current.position.set(.7, gateGround(.7,6), -6);
+    }
     journey.current.landing.set(0, gateGround(0,4), -8);
     setCaptureFocus('scene'); setFreeCamera(false); setPanel(null);
   }
@@ -241,13 +332,6 @@ export default function App() {
     setSound(enabled);
     seaAudio.toggle(enabled).catch(() => setSound(false));
   }
-  function chooseBoat(id) {
-    const profile = boatProfile(id);
-    boatState.current.boatId = profile.id;
-    setBoatId(profile.id);
-    reset();
-    setPanel("settings");
-  }
   function touch(key, active, e) {
     e.preventDefault();
     if (active) { e.currentTarget.setPointerCapture(e.pointerId); setShowHint(false); }
@@ -257,21 +341,18 @@ export default function App() {
   return (
     <main
       className="app"
-      data-camera-mode={freeCamera ? "map" : "sailing"}
+      data-camera-mode={panel === "map" ? "overview" : freeCamera ? "map" : "sailing"}
       data-boat-x={telemetry.x.toFixed(3)}
       data-boat-z={telemetry.z.toFixed(3)}
       data-boat-speed={telemetry.speed.toFixed(3)}
       data-boat-heading={telemetry.heading.toFixed(3)}
       data-boat-type={boatId}
+      data-startup-phase={startupPhase}
       data-render-quality={quality}
       data-quality-mode={qualityMode}
     >
-      {debug && sceneReady && <details className="debug-panel glass"><summary>Debug tools</summary><Suspense fallback={<p>Loading tools…</p>}><CaptureTools onRehearseDiscovery={rehearseDiscovery} onRehearse={rehearseGate} onEndRehearsal={endRehearsal} focus={captureFocus} onFocus={(focus) => { setFreeCamera(false); setCaptureFocus(focus); }} /></Suspense></details>}
-      {!sceneReady && <div className="startup-overlay" role="status" aria-live="polite">
-        <div><h1>{startupError ? 'The sea is taking a moment' : 'Preparing your island'}</h1>
-        <p>{startupError || 'Loading the island and getting the scene ready…'}</p>
-        {startupError && <button onClick={() => location.reload()}>Try again</button>}</div>
-      </div>}
+      {debug && sceneReady && <details className="debug-panel glass"><summary>Debug tools</summary><Suspense fallback={<p>Loading tools…</p>}><CaptureTools onRehearseDiscovery={rehearseDiscovery} onRehearseCrab={() => rehearseDiscovery('crab')} onRehearseShell={() => rehearseDiscovery('shell')} onRehearse={rehearseGate} onEndRehearsal={endRehearsal} focus={captureFocus} onFocus={(focus) => { setFreeCamera(false); setCaptureFocus(focus); }} /></Suspense></details>}
+      <StartupOverlay phase={startupPhase} error={startupError} onStart={startJourney} onSkip={skipIntro} />
       <SceneBoundary onError={setStartupError}>
         <Canvas
           shadows={{ type: PCFShadowMap }}
@@ -284,15 +365,15 @@ export default function App() {
           }
         >
           <WindSystem paused={paused}>
-          <Suspense fallback={null}><SceneStartup onReady={setSceneReady} onError={setStartupError} /></Suspense>
-          <color attach="background" args={["#07526f"]} />
-          <hemisphereLight args={["#d9ecf3", "#647662", 0.82]} />
-          <ambientLight intensity={0.12} />
+          <Suspense fallback={null}><SceneStartup onReady={setAssetsReady} onError={setStartupError} /></Suspense>
+          <color attach="background" args={[SANCTUARY_WATER.deep]} />
+          <hemisphereLight args={[SANCTUARY_LIGHT.sky, SANCTUARY_LIGHT.ground, SANCTUARY_LIGHT.fill]} />
+          <ambientLight intensity={0.22} />
           <directionalLight
             ref={sunRef}
             position={[22, 28, -22]}
-            color="#fff1d6"
-            intensity={3.2}
+            color={SANCTUARY_LIGHT.sun}
+            intensity={SANCTUARY_LIGHT.sunIntensity}
             castShadow
             shadow-mapSize={quality === "high" ? [2048, 2048] : [1024, 1024]}
             shadow-camera-left={-35}
@@ -301,8 +382,8 @@ export default function App() {
             shadow-camera-bottom={-35}
             shadow-camera-near={1}
             shadow-camera-far={80}
-            shadow-radius={2.3}
-            shadow-intensity={0.7}
+            shadow-radius={3.5}
+            shadow-intensity={SANCTUARY_LIGHT.shadowIntensity}
             shadow-normalBias={0.04}
             shadow-bias={-0.00025}
           />
@@ -314,6 +395,7 @@ export default function App() {
             onSail={(point) => {
               if (captureFocus === "scene" && !freeCamera && !paused && journey.current.mode === "aboard" && !islandCollision(point, 0.7)) {
                 setShowHint(false);
+                boatState.current.openingVoyage = false;
                 boatState.current.destination = point.clone();
               }
             }}
@@ -321,8 +403,12 @@ export default function App() {
           <StaticReef onTerrainReady={setReefField} />
           <StaticIsland />
           <DockPennants />
+          <DockFish journey={journey} boatState={boatState} paused={paused} />
           <DriftingLeaves journey={journey} boatState={boatState} enabled={captureFocus === "scene" && !freeCamera} />
-          <DiscoveryObjects journey={journey} paused={paused} />
+          <DiscoveryObjects journey={journey} paused={paused} onReveal={seaAudio.discovery} />
+          <IslandKeepsakes journey={journey} />
+          <IslandActivities journey={journey} paused={paused} audio={seaAudio} />
+          <SandTracks journey={journey} paused={paused} />
           <BeachCrab journey={journey} boatState={boatState} paused={paused} />
           <AdiyogiIsland />
           <NeemIsland />
@@ -332,13 +418,15 @@ export default function App() {
           <StaticWildlife boatState={boatState} terrainRef={reefField} wildlifeRef={wildlifeState} />
           <StaticBirds />
           {profiling && <Suspense fallback={null}><FrameMetrics /></Suspense>}
-          <Boat
+          <Boat pennant={pennant}
+            startup={startup}
             boatId={boatId}
             input={input}
             boatState={boatState}
             terrainRef={reefField}
             paused={paused || freeCamera || journeyStatus.mode !== "aboard"}
             onTelemetry={(data) => {
+              setBoatId(boatState.current.boatId);
               const p = boatState.current.position;
               setTelemetry(previous => updateBoatTelemetry(previous, {
                 ...data,
@@ -347,14 +435,16 @@ export default function App() {
                 z: p.z,
                 heading: boatState.current.heading,
               }));
-              seaAudio.speed(paused || freeCamera || journeyStatus.mode !== "aboard" ? 0 : (data.speed ?? 0), journey.current.mode === "aboard");
+              seaAudio.speed(paused || freeCamera || journeyStatus.mode !== "aboard" ? 0 : (data.speed ?? 0), journey.current.mode === "aboard", boatState.current.boatId !== "rowboat");
             }}
           />
           <AutoQuality mode={qualityMode} quality={quality} enabled={sceneReady} paused={paused} onChange={setQuality} />
           <SceneAudio audio={seaAudio} boatState={boatState} journey={journey} paused={paused} />
-          <Journey journey={journey} boatState={boatState} input={input} paused={paused || freeCamera} onStatus={reportJourneyStatus} onRelease={seaAudio.release} onFootstep={seaAudio.footstep} onImpact={seaAudio.impact} />
+          <Journey startup={startup} journey={journey} boatState={boatState} input={input} paused={paused || freeCamera} onStatus={reportJourneyStatus} onRelease={seaAudio.release} onFootstep={seaAudio.footstep} onImpact={seaAudio.impact} />
           <CompassBearing element={compassElement} />
-          <CameraRig journey={journey} boatState={boatState} freeCamera={freeCamera} captureFocus={captureFocus} wildlifeRef={wildlifeState} mapAction={mapAction} />
+          <IslandDirectionTracking element={islandDirectionsElement} boatState={boatState} enabled={showIslandDirections} />
+          <CameraRig journey={journey} boatState={boatState} freeCamera={freeCamera} captureFocus={captureFocus} wildlifeRef={wildlifeState} mapAction={mapAction} mapOpen={panel === "map"} mapSelection={mapSelection} mapOrbit={mapOrbit} />
+          <MapIslandMarkers markers={mapMarkers} visible={panel === "map" && !mapSelection} />
           <Discovery
             boatState={boatState}
             found={found}
@@ -366,16 +456,20 @@ export default function App() {
           </clippingGroup>
           <WeatherLighting sunRef={sunRef} />
           <GrassInteraction journey={journey} />
-          <GameRendering quality={quality} onError={setStartupError} />
+          <GameRendering startup={startup} assetsReady={assetsReady} onStartup={reportStartup} boatState={boatState} journey={journey} quality={quality} onError={setStartupError} />
           </WindSystem>
         </Canvas>
       </SceneBoundary>
+      {sceneReady && !panel && !freeCamera && !journeyStatus.activeDiscovery && !journeyStatus.benchSeated && <ChapterOneHUD status={journeyStatus} />}
+      <IslandDirections element={islandDirectionsElement} visible={showIslandDirections} />
       <button ref={menuTriggerRef} hidden={Boolean(panel) || !sceneReady} className="menu-trigger" title="Menu · Esc" aria-label="Open menu" aria-haspopup="dialog" onClick={() => { setShowHint(false); setPanel("menu"); }}>
         <span className="menu-lines" aria-hidden="true"><i /><i /><i /></span>
       </button>
-      <button hidden={Boolean(panel) || !sceneReady} className="map-trigger" aria-label="Open island map" title="Map · M" onClick={() => { setShowHint(false); setPanel("map"); }}><Icon name="map" /></button>
+      <button hidden={Boolean(panel) || !sceneReady} className="map-trigger" aria-label="Open island map" title="Navigate · M" onClick={() => { setShowHint(false); setMapSelection(null); setFreeCamera(false); setCaptureFocus("scene"); setPanel("map"); }}><Icon name="map" /><span>Map</span></button>
+      {collectedNotice && !panel && !journeyStatus.activeDiscovery && !journeyStatus.performingAction && <CollectionArrival key={collectedNotice} id={collectedNotice} onDone={finishCollectionNotice}/>}
+      <button hidden={Boolean(panel) || !sceneReady || Boolean(journeyStatus.activeDiscovery)} className="satchel-trigger" aria-label={`Open satchel, ${keepsakes.length} keepsakes`} title="Satchel · I" onClick={() => setPanel('collection')}><Icon name="satchel"/><span>{keepsakes.length} / 3</span></button>
       {sceneReady && !panel && !journeyStatus.activeDiscovery && <Compass element={compassElement} />}
-      {journeyStatus.activeDiscovery && !panel && <DiscoveryCard id={journeyStatus.activeDiscovery} onClose={() => { journey.current.dismissDiscovery = true; }} />}
+      {journeyStatus.activeDiscovery && !journeyStatus.performingAction && !panel && <DiscoveryCard id={journeyStatus.activeDiscovery} onClose={() => { journey.current.dismissDiscovery = true; }} />}
       {sceneReady && !paused && !journeyStatus.activeDiscovery && <div className="gameplay-prompt-slot" aria-label="Current action">
         {freeCamera ? <div className="map-camera-tools" aria-label="Map camera controls">
           <button onClick={() => { setFreeCamera(false); setCaptureFocus("scene"); }}>Back to journey</button>
@@ -383,6 +477,7 @@ export default function App() {
           <button aria-label="Zoom out" onClick={() => setMapAction({ type: "out", id: Date.now() })}>−</button>
           <button onClick={() => setMapAction({ type: "island", id: Date.now() })}>Recenter</button>
         </div> : <GameplayPrompt
+          claimHint={claimHint}
           prompt={selectGameplayPrompt({ journey: journeyStatus, telemetry, paused, freeCamera, showHint, nearbyPlace, touch: touchInteraction })}
           touch={touchInteraction}
           onAction={action => {
@@ -430,7 +525,7 @@ export default function App() {
       </div>
       {notice && !panel ? (
         <button
-          className="discovery-toast glass"
+          className="discovery-toast"
           onClick={() => {
             setSelected(notice.id);
             setPanel("journal");
@@ -448,7 +543,7 @@ export default function App() {
       ) : null}
       {panel ? (
         <div
-          className={`panel-backdrop ${panel === "menu" ? "is-explore" : "has-content"}`}
+          className={`panel-backdrop ${panel === "map" ? "is-world-map" : panel === "menu" ? "is-explore" : "has-content"}`}
           onPointerDown={(e) => {
             if (e.target === e.currentTarget) {
               setPanel(null);
@@ -463,11 +558,15 @@ export default function App() {
             aria-modal="true"
             aria-labelledby="panel-title"
           >
+            {panel === "map" && !mapSelection && <div className="map-island-markers" aria-label="Choose an island">
+              {MAP_DESTINATIONS.map((island,i) => <button key={island.id} ref={node => { mapMarkers.current[i] = node; }} className="map-island-hit" onClick={() => setMapSelection(island.id)} aria-label={`Explore ${island.name}`} />)}
+            </div>}
+            {panel === "map" && <MapOrbitSurface orbit={mapOrbit} />}
             <aside className="menu-sidebar">
               <div className="menu-wordmark" aria-label="Port">port<svg viewBox="0 0 44 12" aria-hidden="true"><path d="M1 7Q11-2 22 7T43 7" /></svg></div>
               <nav className="panel-tabs" aria-label="Explore Port">
-                {[["menu", "compass", "Explore"], ["map", "map", "Island map"], ["journal", "book", "Field notes"], ["help", "controls", "Controls"], ["settings", "gear", "Settings"]].map(([id, icon, label]) =>
-                  <button key={id} aria-label={label} aria-current={panel === id ? "page" : undefined} onClick={() => { setPanel(id); setSelected(null); }}><Icon name={icon} /><span>{label}</span></button>
+                {[["menu", "compass", "Explore"], ["map", "map", "Island map"], ["journal", "book", "Field notes"], ["collection", "satchel", "Satchel"], ["help", "controls", "Controls"], ["settings", "gear", "Settings"]].map(([id, icon, label]) =>
+                  <button key={id} aria-label={label} aria-current={panel === id ? "page" : undefined} onClick={() => { if (id === "map") { setMapSelection(null); setFreeCamera(false); setCaptureFocus("scene"); } setPanel(id); setSelected(null); }}><Icon name={icon} /><span>{label}</span></button>
                 )}
               </nav>
               <button className="resume-button" onClick={() => { setPanel(null); setSelected(null); }}>Resume</button>
@@ -475,7 +574,7 @@ export default function App() {
             <button
               autoFocus
               className="close-button"
-              aria-label="Close menu"
+              aria-label={panel === "map" ? "Return to player" : "Close menu"}
               onClick={() => {
                 setPanel(null);
                 setSelected(null);
@@ -483,9 +582,19 @@ export default function App() {
             >
               <Icon name="close" />
             </button>
-            {panel === "menu" ? <h1 id="panel-title" className="sr-only">Explore Port</h1> : <div className="panel-content" key={panel}>
+            {panel === "map" && <footer className="map-navigation-footer">
+              <div className="map-orbit-buttons" aria-label="Rotate map">
+                <button aria-label="Rotate map left" onClick={() => turnMapOrbit(mapOrbit.current,.35)}>↶</button>
+                <button onClick={() => { mapOrbit.current.targetYaw=0; }} aria-label="Reset view" title="Reset view">⌖</button>
+                <button aria-label="Rotate map right" onClick={() => turnMapOrbit(mapOrbit.current,-.35)}>↷</button>
+              </div>
+              <button className="resume-button" onClick={() => setPanel(null)}>Resume journey <span aria-hidden="true">↗</span></button>
+              <p className="map-caption">Drag to explore</p>
+            </footer>}
+            {panel === "menu" ? <h1 id="panel-title" className="sr-only">Explore Port</h1> : <div className={`panel-content ${panel === "collection" ? "collection-content" : ""}`} key={panel}>
             <button className="mobile-back" onClick={() => { setPanel("menu"); setSelected(null); }}>← Explore</button>
-            <h1 id="panel-title">{panel === "help" ? "Controls" : panel === "map" ? "Island map" : panel === "journal" ? "Field notes" : "Settings"}</h1>
+            <h1 id="panel-title">{panel === "help" ? "Controls" : panel === "map" ? selectedIsland?.name ?? "The islands" : panel === "journal" ? "Field notes" : panel === "collection" ? "Your satchel" : "Settings"}</h1>
+            {panel === "collection" && <Collection items={keepsakes} pennant={pennant} onEquip={equipPennant} />}
             {panel === "help" && <>
               <p className="panel-intro">Find a quiet shore. Step off the boat and walk through Malai Vasal.</p>
               <dl className="help-list">
@@ -496,24 +605,15 @@ export default function App() {
                 <div><dt>Slow the boat</dt><dd><kbd>Space</kbd></dd></div>
                 <div><dt>Step ashore / board</dt><dd><kbd>E</kbd> near the shore / boat</dd></div>
                 <div><dt>Return boat to water</dt><dd><kbd>R</kbd></dd></div>
+                <div><dt>Satchel</dt><dd><kbd>I</kbd></dd></div>
                 <div><dt>Map / menu</dt><dd><kbd>M</kbd> / <kbd>Esc</kbd></dd></div>
               </dl>
               <p className="panel-intro">On touch screens, use the arrows to move and Stop to brake aboard; on land, use Jump and hold Run with an arrow. Nearby actions appear on screen.</p>
             </>}
-            {panel === "map" ? (
-              <>
-                <p className="panel-intro">
-                  Two islands to explore. No rush to get there.
-                </p>
-                <AtollMap boat={{x: telemetry.x, z: telemetry.z, heading: telemetry.heading}} found={found} onSelect={(id) => { setSelected(id); setPanel("journal"); }} />
-                <div className="map-locations">{PLACES.map((place, index) => <button key={place.id} onClick={() => { setSelected(place.id); setPanel("journal"); }}><span>0{index + 1}</span><strong>{place.name}</strong><small>{found.includes(place.id) ? "Found" : "Explore"}</small></button>)}</div>
-                <button className="reset-button" onClick={() => { setFreeCamera(true); setCaptureFocus("scene"); setMapAction({ type: "island", id: Date.now() }); setPanel(null); setShowHint(false); }}>Explore all islands ↗</button>
-                <p className="map-caption">
-                  You are the little white boat. Sail close to a place to
-                  discover it.
-                </p>
-              </>
-            ) : null}
+            {panel === "map" && <>
+              <p className="panel-intro">{selectedIsland ? selectedIsland.description : "Choose a shore."}</p>
+              {selectedIsland && <button ref={mapBackButton} className="map-all-islands" onClick={() => setMapSelection(null)}>← All islands</button>}
+            </>}
             {panel === "journal" ? (
               <>
                 <p className="panel-intro">
@@ -569,15 +669,6 @@ export default function App() {
                   A few little comforts for your time on the water.
                 </p>
                 <div className="settings-row">
-                  <label htmlFor="boat-choice">
-                    <strong>Your boat</strong>
-                    <small>{boatProfile(boatId).description}</small>
-                  </label>
-                  <select id="boat-choice" value={boatId} onChange={(e) => chooseBoat(e.target.value)}>
-                    {BOATS.map((boat) => <option key={boat.id} value={boat.id}>{boat.name}</option>)}
-                  </select>
-                </div>
-                <div className="settings-row">
                   <span>
                     <strong>Sounds of the sea</strong>
                     <small>Waves, wind in the trees, and a quiet outboard</small>
@@ -623,7 +714,7 @@ export default function App() {
                   </select>
                 </div>
                 <button className="reset-button" onClick={restartJourney}>Restart journey</button>
-                <p className="map-caption">Your journey is saved on this device automatically.</p>
+                <p className="map-caption">Your chapter progress and unlocked boat are saved on this device.</p>
                 <button className="reset-button" onClick={reset}>
                   <Icon name="home" />
                   Return to harbour

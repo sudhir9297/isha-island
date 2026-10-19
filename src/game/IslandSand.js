@@ -24,14 +24,16 @@ export function makeIslandSandTextures(contactSites = []) {
     let contact = 0;
     for (const site of contactSites) {
       const d = ((x-site.x)/site.rx)**2 + ((z-site.z)/site.rz)**2;
-      if (d < 6) contact = Math.max(contact, site.shade * Math.exp(-d*1.8));
+      if (d < 6) contact = Math.max(contact, site.shade * Math.exp(-d*2.3) * 1.12);
     }
-    const tone = (242 + grain * 20 + mottling * 4 + ripple * 3) * (1-contact);
-    const height = 128 + grain * 40 + ripple * 26;
+    // Soft, broad brush-like pigment variation; fine grain stays subordinate.
+    const wash = Math.sin(x * 0.72 + Math.sin(z * 0.58) * 1.4) * Math.cos(z * 0.65 - x * 0.21);
+    const tone = (246 + grain * 5 + mottling * 2 + wash * 5 + ripple) * (1-contact);
+    const height = 128 + grain * 12 + ripple * 11;
     const offset = (row * size + col) * 4;
     color[offset] = Math.min(255, tone + 3);
     color[offset + 1] = tone;
-    color[offset + 2] = tone - 6;
+    color[offset + 2] = tone - 4 - (wash + 1) * 2;
     for (let channel = 0; channel < 3; channel++) {
       relief[offset + channel] = height;
       roughness[offset + channel] = 247 - wet * 75 + grain * 8;

@@ -18,6 +18,7 @@ export default function Icon({ name, ...props }) {
         <path d="M12 5v15" />
       </>
     ),
+    satchel: <><path d="M8 7V5a4 4 0 0 1 8 0v2M4 7h16l1 14H3L4 7Z"/><path d="M4 8q8 10 16 0M10 13h4v4h-4z"/></>,
     gear: (
       <>
         <path d="M4 7h16M4 17h16M8 4v6M16 14v6" />

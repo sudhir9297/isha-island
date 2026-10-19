@@ -1,3 +1,4 @@
+import { stepCrabStory } from './CrabStory.js';
 import { crabDestination, crabPath, crabEscapeTarget, crabWalkable } from './CrabNavigation.js';
 const clamp = (v, low, high) => Math.max(low, Math.min(high, v));
 function random(s) {
@@ -19,27 +20,18 @@ export function stepCrab(s, player, delta, paused = false, discovery = null) {
   const dx = player ? s.x - player.x : 0;
   const dz = player ? s.z - player.z : 0;
   const distance = player ? Math.hypot(dx, dz) : Infinity;
-  const guiding = discovery?.enabled && distance >= 1.4 && distance < 4.8 && !discovery.running;
-  if (discovery?.running && distance < 2.6 && s.hidden <= 0) s.hidden = 2.5;
+  if (discovery?.enabled) { stepCrabStory(s, player, dt, discovery); return; }
+  if (!discovery?.enabled && discovery?.running && distance < 2.6 && s.hidden <= 0) s.hidden = 2.5;
   if (s.hidden > 0) {
     s.hidden = Math.max(0, s.hidden - dt);
     s.mode = 'hide'; s.speed = 0; s.alarm = 0;
     return;
   }
-  if (guiding) {
-    s.alarm = 0;
-  } else if (distance < 2.6 || (s.mode === 'flee' && distance < 4)) s.alarm = 1.2;
+  if (distance < 2.6 || (s.mode === 'flee' && distance < 4)) s.alarm = 1.2;
   else s.alarm = Math.max(0, s.alarm - dt);
 
   let vx = 0, vz = 0, speed = 0;
-  if (guiding) {
-    vx = discovery.x - s.x; vz = discovery.z - s.z;
-    s.timer = 0;
-    if (Math.hypot(vx, vz) < 0.18) {
-      s.mode = 'dig'; s.uncover += dt; vx = 0; vz = 0;
-      if (s.uncover > 1.4) s.uncovered = true;
-    } else { s.mode = 'guide'; speed = 0.7; s.uncover = 0; }
-  } else if (s.alarm > 0) {
+  if (s.alarm > 0) {
     s.mode = 'flee';
     s.timer = 0;
     const away = distance > 0.001 && player ? Math.atan2(dz, dx) : -s.heading;

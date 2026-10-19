@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {WORLD_MARKERS, LUGGAGE_OFFSETS, validateWorldMarkers} from './WorldMarkers.js';
 const fixture=()=>({version:1,space:'game-world-y-up',markers:structuredClone(WORLD_MARKERS)});
 test('authored markers retain gate, spawn and arrival-side throws',()=>{
-  assert.deepEqual(WORLD_MARKERS.spawn,[-13,0,-4]);
+  assert.deepEqual(WORLD_MARKERS.spawn,[0,0,48]);
   assert.equal(WORLD_MARKERS.gateEntry[2],-11.4);
   assert.equal(WORLD_MARKERS.gateExit[2],-12.7);
   assert.ok(LUGGAGE_OFFSETS.every(([,z])=>z>0));

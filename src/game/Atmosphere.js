@@ -5,6 +5,7 @@ export const WIND_GROVES = Object.freeze([
   { x: -9, z: -11.1, height: 4.8 }, { x: 9, z: -11.4, height: 4.9 },
   { x: -5.4, z: -16.9, height: 5 }, { x: 4.4, z: -18.2, height: 4.5 },
   { x: -8.3, z: -8.8, height: 3.8 },
+  { x: 64.2, z: -48.65, height: 4.2 },
 ]);
 const clamp = value => Math.max(0, Math.min(1, value));
 export function sampleWeather(time, result = {}) {

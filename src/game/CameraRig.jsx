@@ -1,3 +1,6 @@
+import { stepMapOrbit, resetMapOrbit } from './MapOrbit.js';
+import { createMapDestination, stepMapDestination } from './MapDestinations.js';
+import { createMapTransition, stepMapTransition, mapFocusBlend, blendMapZoom } from './MapCamera.js';
 import { NEEM_ISLAND } from './NeemTerrain.js';
 import { createCameraFollow, changeFollowZoom, stepCameraFollow } from './CameraFollow.js';
 import { useEffect, useRef } from "react";
@@ -9,18 +12,24 @@ import { START, CAMERA_OFFSET, CAMERA_VIEW_HEIGHT } from "./WorldConfig";
 import { WORLD_MARKERS } from "./WorldMarkers.js";
 import { ISLAND_CENTER_Z } from "./Seabed.js";
 
-export default function CameraRig({ journey, boatState, freeCamera, captureFocus = "scene", wildlifeRef, mapAction }) {
+export default function CameraRig({ journey, boatState, freeCamera, captureFocus = "scene", wildlifeRef, mapAction, mapOpen = false, mapSelection = null, mapOrbit }) {
   const camera = useRef(),
     orbit = useRef();
   const size = useThree((s) => s.size);
   const canvas = useThree((s) => s.gl.domElement);
+  const seatBlend = useRef(0);
   const follow = useRef(createCameraFollow());
   const wasFree = useRef(false);
+  const mapTransition = useRef(createMapTransition());
+  const mapDestinationState = useRef(createMapDestination());
+  const mapTarget = useRef(new Vector3(MAP_FRAME.x, 0, MAP_FRAME.z));
   const reducedMotion = useRef(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const target = useRef(new Vector3(START.x, 0, START.z));
   const offset = useRef(new Vector3(...CAMERA_OFFSET));
   const smoothedOffset = useRef(new Vector3(...CAMERA_OFFSET));
   const followPoint = useRef(new Vector3());
+  const orbitalOffset = useRef(new Vector3());
+  const upAxis = useRef(new Vector3(0,1,0));
   useEffect(() => {
     const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
     const update = () => { reducedMotion.current = preference.matches; };
@@ -28,7 +37,7 @@ export default function CameraRig({ journey, boatState, freeCamera, captureFocus
     return () => preference.removeEventListener('change', update);
   }, []);
   useEffect(() => {
-    if (freeCamera || captureFocus !== 'scene') return;
+    if (freeCamera || mapOpen || captureFocus !== 'scene') return;
     let pinchDistance = null;
     const wheel = (event) => {
       event.preventDefault();
@@ -56,7 +65,7 @@ export default function CameraRig({ journey, boatState, freeCamera, captureFocus
       canvas.removeEventListener('touchend', end);
       canvas.removeEventListener('touchcancel', end);
     };
-  }, [canvas, freeCamera, captureFocus, size.height]);
+  }, [canvas, freeCamera, mapOpen, captureFocus, size.height]);
   useEffect(() => {
     if (!freeCamera) {
       if (camera.current && captureFocus !== "scene") {
@@ -113,9 +122,12 @@ export default function CameraRig({ journey, boatState, freeCamera, captureFocus
       const state = stepCameraFollow(follow.current, {
         position: framed, aboard, speed, resetId: boatState.current.resetId,
         reducedMotion: reducedMotion.current,
+        arrival: !story?.released && (!story || story.mode === 'aboard' || story.mode === 'walking'),
       }, delta);
+      const seatTarget = story?.benchSeated ? 1 : 0;
+      seatBlend.current += (seatTarget-seatBlend.current)*(reducedMotion.current ? 1 : 1-Math.exp(-Math.min(delta,.05)*.7));
       target.current.copy(state.target);
-      camera.current.zoom = Math.min(size.height, size.width * 1.8) / state.viewHeight;
+      camera.current.zoom = Math.min(size.height, size.width * 1.8) / (state.viewHeight * (1 + seatBlend.current*.55));
       camera.current.updateProjectionMatrix();
     } else target.current.lerp(framed, 1 - Math.exp(-delta * 3.5));
     offset.current.set(...(captureFocus === "foliage" ? [-10, 18, 16] : captureFocus === "gate-detail" ? [4.5, 5, 15] : captureFocus === "gate" ? [0, 8, 24] : CAMERA_OFFSET));
@@ -124,6 +136,9 @@ export default function CameraRig({ journey, boatState, freeCamera, captureFocus
       offset.current.set(-Math.sin(heading + (captureFocus === "traveler-back" ? Math.PI : captureFocus === "traveler-side" ? Math.PI / 2 : .22)) * 3, .975, -Math.cos(heading + (captureFocus === "traveler-back" ? Math.PI : captureFocus === "traveler-side" ? Math.PI / 2 : .22)) * 3);
     }
     const story = journey?.current;
+    if (captureFocus === 'scene' && seatBlend.current > .001) {
+      offset.current.lerp(orbitalOffset.current.set(8,12,18),seatBlend.current);
+    }
     if (captureFocus === 'scene' && story?.mode === 'resting') {
       // View the resting spot from the sea side so the crown rock cannot hide it.
       offset.current.set(12, 14, -10);
@@ -132,7 +147,21 @@ export default function CameraRig({ journey, boatState, freeCamera, captureFocus
     }
     if(reducedMotion.current)smoothedOffset.current.copy(offset.current);
     else smoothedOffset.current.lerp(offset.current,1-Math.exp(-delta*3));
-    camera.current.position.copy(target.current).add(smoothedOffset.current);
+    const mapView = stepMapDestination(mapDestinationState.current, mapSelection, delta, reducedMotion.current);
+    mapTarget.current.set(mapView.x, 0, mapView.z);
+    const mapBlend = stepMapTransition(mapTransition.current, mapOpen, delta, reducedMotion.current);
+    if (mapBlend > 0 && captureFocus === 'scene') {
+      target.current.lerp(mapTarget.current, mapFocusBlend(mapBlend));
+      camera.current.zoom = blendMapZoom(camera.current.zoom, size.width, size.height, mapView.span, mapBlend);
+      camera.current.updateProjectionMatrix();
+    }
+    let yaw = 0;
+    if (mapOrbit) {
+      if (mapBlend === 0 && !mapOpen) { resetMapOrbit(mapOrbit.current, true); }
+      yaw = stepMapOrbit(mapOrbit.current, delta, reducedMotion.current) * mapBlend;
+    }
+    orbitalOffset.current.copy(smoothedOffset.current).applyAxisAngle(upAxis.current, yaw);
+    camera.current.position.copy(target.current).addScaledVector(orbitalOffset.current, 1 + mapBlend * 2);
     camera.current.lookAt(target.current);
     camera.current.updateMatrixWorld();
   }, 0.5);

@@ -3,7 +3,7 @@ import { islandGroundAt } from './IslandGround.js';
 import { gateGround } from './MalaiVasalGeometry.js';
 
 export const DOCK = Object.freeze({ x: 7, z: -4.85, rotation: -0.16,
-  halfWidth: 0.86, start: -1.77, end: 6.02, deckHeight: 0.595 });
+  halfWidth: 1.08, start: -1.77, end: 6.02, deckHeight: 0.595 });
 const cos = Math.cos(DOCK.rotation), sin = Math.sin(DOCK.rotation);
 export function dockWorldPoint(x, z) {
   return { x: DOCK.x + cos * x + sin * z, z: DOCK.z - sin * x + cos * z };

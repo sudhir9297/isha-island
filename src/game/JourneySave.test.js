@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {START} from './WorldConfig.js';
 import {Vector3} from 'three';
 import {createJourney} from './JourneyState.js';
 import {snapshotJourney,parseJourneySave,restoreJourney} from './JourneySave.js';
@@ -18,7 +19,7 @@ test('malformed and unsafe walking saves are rejected; unsafe boats recover to w
   for(const raw of ['bad','null','{}','{"version":99}'])assert.equal(parseJourneySave(raw),null);
   const b=boat(),s=createJourney(),data=snapshotJourney(b,s);
   data.boat.x=0;data.boat.z=-12;
-  const safe=parseJourneySave(JSON.stringify(data));assert.ok(safe);assert.equal(safe.boat.x,-13);
+  const safe=parseJourneySave(JSON.stringify(data));assert.ok(safe);assert.equal(safe.boat.x,START.x);
   data.journey.mode='walking';data.journey.position={x:70,z:70};assert.equal(parseJourneySave(JSON.stringify(data)),null);
   data.journey.position={x:4,z:-12};assert.equal(parseJourneySave(JSON.stringify(data)),null);
 });

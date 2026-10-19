@@ -4,7 +4,7 @@ import { Color, DataTexture, EquirectangularReflectionMapping, FloatType, Linear
 // reflected environment. Values are linear radiance, matching the scene lights.
 export function createBoatReflection() {
   const width = 128, height = 64, pixels = new Float32Array(width * height * 4);
-  const zenith = new Color("#85b4c3"), horizon = new Color("#e6e2cc"), sea = new Color("#17667a");
+  const zenith = new Color("#a5cbd8"), horizon = new Color("#f0e4cc"), sea = new Color("#268e9c");
   const sun = [22, 28, -22], length = Math.hypot(...sun);
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
     const theta = (1 - (y + 0.5) / height) * Math.PI;

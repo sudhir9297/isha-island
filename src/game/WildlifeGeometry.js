@@ -233,6 +233,8 @@ function shark() {
   return { body: geometry };
 }
 
+export function createDockFishGeometry() { return fish("butterfly"); }
+
 export function createWildlifeGeometry() {
   return { silver: fish("silver"), butterfly: fish("butterfly"), parrot: fish("parrot"), manta: manta(), shark: shark() };
 }

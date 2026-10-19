@@ -15,9 +15,9 @@ function islandMaterial(source) {
   // The fine protective net in the detailed source aliases at game distance.
   if (/retaining wire/i.test(name)) material.visible = false;
   if (/Source baked/.test(name)) {
-    color = /Boulder/.test(name) ? "#b5b6b8" : "#bdbbb4";
+    color = /Boulder/.test(name) ? "#968b80" : "#e0cdb0";
     material.bumpMap = source.map;
-    material.bumpScale = /Boulder/.test(name) ? 0.045 : 0.025;
+    material.bumpScale = /Boulder/.test(name) ? 0.022 : 0.012;
     material.onBeforeCompile = (shader) => {
       shader.vertexShader = "varying float vStoneNormalY;\n" + shader.vertexShader;
       shader.vertexShader = shader.vertexShader.replace("#include <beginnormal_vertex>", "#include <beginnormal_vertex>\nvStoneNormalY = objectNormal.y;");
@@ -26,17 +26,18 @@ function islandMaterial(source) {
         #ifdef USE_MAP
           vec4 stoneSample = texture2D(map, vMapUv);
           float grain = dot(stoneSample.rgb, vec3(0.2126, 0.7152, 0.0722));
-          diffuseColor.rgb *= mix(0.78, 1.12, smoothstep(0.08, 0.7, grain));
+          diffuseColor.rgb *= mix(0.9, 1.06, smoothstep(0.08, 0.7, grain));
         #endif
         diffuseColor.rgb *= mix(0.8, 1.0, smoothstep(-0.6, 0.2, vStoneNormalY));
       `);
     };
+    material.color.set(color);
     material.colorNode = gateStoneColor(material);
-    material.customProgramCacheKey = () => "island-stone-grain-v2";
+    material.customProgramCacheKey = () => "island-stone-grain-v3";
   } else if (/Laterite brick/.test(name)) {
-    const tones = ["#bb805e", "#cf9771", "#b97d60", "#c48a68", "#d5a07c", "#c48c6d"];
+    const tones = ["#bb805e", "#cf9771", "#b97d60", "#c48a68", "#d5a07c", "#bb8972"];
     color = tones[Number(name.slice(-1)) % tones.length];
-  } else if (/brick courses/i.test(name)) color = "#c48c6d";
+  } else if (/brick courses/i.test(name)) color = "#bb8972";
   else if (/Brick joints/.test(name)) color = "#918375";
   else if (/Finial/.test(name)) {
     color = "#c9aa62";
@@ -46,10 +47,10 @@ function islandMaterial(source) {
     color = /edges/i.test(name) ? "#666969" : "#353d3e";
     material.metalness = 0.25;
     material.roughness = 0.64;
-  } else if (/cracks/.test(name)) color = "#656361";
-  else if (/chips/.test(name)) color = "#d0cec5";
-  else if (/Granite edge/.test(name)) color = "#abaea9";
-  if (/Pale warm granite/.test(name)) color = "#c6c3b9";
+  } else if (/cracks/.test(name)) color = "#837179";
+  else if (/chips/.test(name)) color = "#ecddc4";
+  else if (/Granite edge/.test(name)) color = "#b49e98";
+  if (/Pale warm granite/.test(name)) color = "#e4d2b6";
   material.color.set(color);
   return material;
 }

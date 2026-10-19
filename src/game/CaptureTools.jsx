@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 // Debug recording of the actual rendered canvas, without screen permissions.
-export default function CaptureTools({ focus = "scene", onFocus, onRehearse, onRehearseDiscovery, onEndRehearsal }) {
+export default function CaptureTools({ focus = "scene", onFocus, onRehearse, onRehearseDiscovery, onRehearseCrab, onRehearseShell, onEndRehearsal }) {
   const [recording, setRecording] = useState(false), [clip, setClip] = useState(null), [error, setError] = useState("");
   const capture = useRef(null), clipUrl = useRef(null), clipBlob = useRef(null);
   const [saved, setSaved] = useState("");
@@ -88,6 +88,11 @@ export default function CaptureTools({ focus = "scene", onFocus, onRehearse, onR
     </select>
     <button onClick={()=>{ window.dispatchEvent(new Event("port:reset-performance")); const root=document.querySelector("main.app"); if(root)delete root.dataset.frameTiming; }}>Reset performance sample</button>
     <button onClick={onRehearseDiscovery}>Rehearse dock discovery</button>
+    <button onClick={onRehearseCrab}>Rehearse crab encounter</button>
+    <button onClick={onRehearseShell}>Rehearse shell discovery</button>
+    <button onClick={() => onRehearseDiscovery('neem-seat')}>Rehearse neem seat</button>
+    <button onClick={() => onRehearseDiscovery('bell')}>Rehearse bell</button>
+    <button onClick={() => onRehearseDiscovery('stones')}>Rehearse stone skipping</button>
     <button onClick={()=>onRehearse(false)}>Rehearse gate crossing</button>
       <button onClick={()=>onRehearse(true)}>Rehearse quiet overlook</button>
       <button onClick={onEndRehearsal}>End rehearsal</button>

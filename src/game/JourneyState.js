@@ -1,3 +1,8 @@
+import { advanceCharacterAction } from './CharacterAction.js';
+import { stepNeemSeat } from './NeemSeat.js';
+import { stepActivity, advanceActivity } from './IslandActivities.js';
+import { slideWalkingMove } from './WalkingObstacles.js';
+import { stepChapterOne } from './ChapterOne.js';
 import { hitsNeemProps } from './NeemTerrain.js';
 import { interactDiscovery } from './Discoveries.js';
 import { nearRestSpot, hitsOverlookSeat } from './StoryMoments.js';
@@ -7,10 +12,10 @@ import { boatProfile } from './BoatProfiles.js';
 import { Vector3 } from 'three';
 import { worldCoastalRadiusAt } from './Seabed.js';
 import { islandCenterAt, islandGroundAt } from './IslandGround.js';
-import { walkingSurfaceHeight } from './WalkingSurface.js';
+import { DOCK, dockWorldPoint, walkingSurfaceHeight } from './WalkingSurface.js';
 export const JUMP_DURATION = 1.5;
 export function createJourney(resetId = 0) {
-  return { velocityX: 0, velocityZ: 0, noteRead: false, shellRevealed: false, shellFound: false, nearDiscovery: null, activeDiscovery: null, dismissDiscovery: false, running: false, jumping: false, jumpTime: 0, jumpHeld: false, rehearsal: false, rehearsalManual: false, mode: 'aboard', position: new Vector3(), heading: 0, landing: new Vector3(), released: false,
+  return { action: null, nearBench: false, benchSeated: false, seatTime: 0, activity: null, nearActivity: null, seenHints: [], velocityX: 0, velocityZ: 0, noteRead: false, crabInvited: false, crabPosition: null, crabHint: null, shellRevealed: false, shellFound: false, nearDiscovery: null, activeDiscovery: null, dismissDiscovery: false, running: false, jumping: false, jumpTime: 0, jumpHeld: false, rehearsal: false, rehearsalManual: false, mode: 'aboard', position: new Vector3(), heading: 0, landing: new Vector3(), released: false,
     releaseTime: 0, completed: false, restTime: 0, nearRest: false, releaseOrigin: null, resetId, canLand: false, availableLanding: null, interactionHeld: false, distance: 0 };
 }
 // Keep the walker's body and carried bags beyond the oriented gunwale/motor.
@@ -25,6 +30,22 @@ export function clearOfBoat(x, z, boat) {
 export function landingPoint(boat) {
   if (Math.abs(boat.speed) > 1.8) return null;
   const p = boat.position;
+  // Let a slow boat land directly on the pier, including from either side.
+  // Keep the landing inside the rails and outside the boat's full footprint.
+  if (Math.hypot(p.x - DOCK.x, p.z - DOCK.z) < 12) {
+    let nearest = null, nearestDistance = 4;
+    for (let along = 0; along <= DOCK.end - .3; along += .2) {
+      for (const across of [-.65, 0, .65]) {
+        const point = dockWorldPoint(across, along);
+        const distance = Math.hypot(point.x - p.x, point.z - p.z);
+        if (distance < nearestDistance && clearOfBoat(point.x, point.z, boat)) {
+          nearest = new Vector3(point.x, DOCK.deckHeight, point.z);
+          nearestDistance = distance;
+        }
+      }
+    }
+    if (nearest) return nearest;
+  }
   // Search along the inward beach normal for the closest dry footing.
   const center = islandCenterAt(p.x, p.z);
   const dx = center.x - p.x, dz = center.z - p.z, length = Math.hypot(dx, dz);
@@ -35,10 +56,12 @@ export function landingPoint(boat) {
   }
   return null;
 }
-export function stepJourney(s, boat, controls, delta, paused = false) {
+export function stepJourney(s, boat, controls, delta, paused = false, blocksMovement) {
   if (s.resetId !== boat.resetId) Object.assign(s, createJourney(boat.resetId));
   if (paused) { s.interactionHeld = Boolean(controls.interact); s.jumpHeld = Boolean(controls.brake); controls.jumpRequested = false; return; }
   const dt = Math.min(.05, Math.max(0, delta));
+  advanceActivity(s, dt);
+  advanceCharacterAction(s, dt);
   s.running = false;
   const jumpPressed = controls.jumpRequested || (controls.brake && !s.jumpHeld);
   controls.jumpRequested = false;
@@ -51,6 +74,7 @@ export function stepJourney(s, boat, controls, delta, paused = false) {
   const pressed = s.requestInteract || (controls.interact && !s.interactionHeld);
   s.requestInteract = false;
   s.interactionHeld = Boolean(controls.interact);
+  if(s.action && s.action.kind!=='pickup')return;
   const landing = s.mode === 'aboard' ? landingPoint(boat) : null;
   s.canLand = Boolean(landing);
   s.availableLanding = landing;
@@ -63,7 +87,10 @@ export function stepJourney(s, boat, controls, delta, paused = false) {
     }
     return;
   }
+  stepChapterOne(s, boat);
   if (interactDiscovery(s, pressed)) return;
+  if (stepNeemSeat(s, pressed, controls, dt)) return;
+  if (stepActivity(s, pressed)) return;
   s.nearRest = s.released && nearRestSpot(s.position);
   if (s.mode === 'resting') {
     s.restTime += dt;
@@ -92,16 +119,22 @@ export function stepJourney(s, boat, controls, delta, paused = false) {
   s.velocityX += (wantedX-s.velocityX)*steering;
   s.velocityZ += (wantedZ-s.velocityZ)*steering;
   if (Math.hypot(s.velocityX,s.velocityZ) > .001 && !locked) {
-    const nx=s.position.x+s.velocityX*dt, nz=s.position.z+s.velocityZ*dt;
-    const wall = Math.abs(nz + 12) < .65 && Math.abs(nx) > 1.15 && Math.abs(nx) < 9.2;
-    const floor = walkingSurfaceHeight(nx, nz);
-    if (floor !== null && !wall && !hitsNeemProps(nx, nz) && !hitsOverlookSeat(nx,nz) && clearOfBoat(nx, nz, boat)) {
+    const canEnter=(x,z)=>{
+      const floor=walkingSurfaceHeight(x,z);
+      const wall=Math.abs(z+12)<.65 && Math.abs(x)>1.15 && Math.abs(x)<9.2;
+      return floor!==null && !wall && !hitsNeemProps(x,z) && !hitsOverlookSeat(x,z)
+        && clearOfBoat(x,z,boat) && !blocksMovement?.(x,z,floor);
+    };
+    const next=slideWalkingMove(s.position.x,s.position.z,s.velocityX*dt,s.velocityZ*dt,canEnter);
+    const nx=next.x,nz=next.z,floor=walkingSurfaceHeight(nx,nz);
+    const traveled=Math.hypot(nx-s.position.x,nz-s.position.z);
+    if (traveled > 1e-7) {
       s.running = Boolean(controls.run);
-      s.distance += Math.hypot(s.velocityX,s.velocityZ) * dt;
+      s.distance += traveled;
       // Only traversing the central doorway from the arrival side releases bags.
       if (Math.abs(nx - WORLD_MARKERS.gateEntry[0]) < 1.15 && s.position.z > WORLD_MARKERS.gateEntry[2] && nz <= WORLD_MARKERS.gateEntry[2]) s.gateEntered = true;
       if (Math.abs(nx - WORLD_MARKERS.gateEntry[0]) >= 1.15 || nz > WORLD_MARKERS.gateEntry[2] + .05) s.gateEntered = false;
-      if (!s.released && s.gateEntered && nz < WORLD_MARKERS.gateExit[2]) { s.released = true; s.releaseTime = 0; s.releaseOrigin = {x:nx,y:islandGroundAt(nx,nz),z:nz}; }
+      if (!s.released && s.gateEntered && nz < WORLD_MARKERS.gateExit[2]) { s.released = true; s.releaseTime = 0; s.releaseOrigin = {x:nx,y:islandGroundAt(nx,nz),z:nz}; stepChapterOne(s, boat); }
       s.position.set(nx, floor, nz);
       s.heading = Math.atan2(-s.velocityX, -s.velocityZ);
     } else { s.velocityX=0; s.velocityZ=0; }

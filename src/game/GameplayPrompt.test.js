@@ -6,7 +6,7 @@ test('recovery occupies the sole prompt ahead of landing, hints and nearby notic
  assert.deepEqual(pick({canLand:true},{telemetry:{beached:true,beachedTime:2.1}}),{action:'reset',key:'R',label:'Reset to water',detail:'Automatic return in 3s'});
 });
 test('on-foot discovery wins over a grounded boat, boarding and rest',()=>{
- assert.equal(pick({mode:'walking',nearDiscovery:'note',nearBoat:true,nearRest:true,releaseTime:8},{telemetry:{beached:true}}).label,'Discover');
+ assert.equal(pick({mode:'walking',nearDiscovery:'note',nearBoat:true,nearRest:true,releaseTime:8},{telemetry:{beached:true}}).label,'Read note');
  assert.equal(pick({mode:'walking',nearBoat:true},{telemetry:{beached:true}}).label,'Board boat');
 });
 test('resting and shore actions win over passive guidance',()=>{
@@ -22,4 +22,11 @@ test('menus, discovery cards and map mode suppress gameplay prompts',()=>{
 test('falls back to one hint with correct walking touch instructions',()=>{
  assert.equal(pick({mode:'walking'},{nearbyPlace:null,touch:true}).label,'Use the arrows to walk · Tap Jump to hop');
  assert.equal(pick({},{nearbyPlace:null,showHint:false}),null);
+});
+
+test('crab greeting and guidance use the existing action slot',()=>{
+ assert.equal(pick({mode:'walking',nearDiscovery:'crab',nearBoat:true}).label,'Say hello to the crab');
+ assert.equal(pick({mode:'walking',crabHint:'Follow the crab'}).label,'Follow the crab');
+ assert.equal(pick({mode:'walking',nearDiscovery:'shell',crabHint:'Follow the crab'}).label,'Collect shell');
+ assert.equal(pick({mode:'walking',activeDiscovery:'crab',crabHint:'Follow the crab'}),null);
 });

@@ -14,7 +14,7 @@ export default function MalaiVasal() {
   const fillTarget = useMemo(() => new THREE.Object3D(), []);
   return <group name="Malai Vasal mountain entrance">
     <primitive object={fillTarget} position={[0, GATE.floor + 2.5, 0]} />
-    <directionalLight position={[-7, 13, 12]} target={fillTarget} color="#e2eff4" intensity={1.45} />
+    <directionalLight position={[-7, 13, 12]} target={fillTarget} color="#eee5df" intensity={0.8} />
     <group position={[GATE.x, GATE.floor, GATE.z]}>
       <Suspense fallback={null}><GateModel /></Suspense>
     </group>

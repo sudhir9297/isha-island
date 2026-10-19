@@ -1,5 +1,6 @@
+import { ROWING_RATE } from './Rowing.js';
 import { WORLD_LIMIT } from "./AdiyogiTerrain.js";
-import { BOAT_SCALE, DOCK, START } from "./WorldConfig.js";
+import { BOAT_SCALE, DOCK, START, OPENING_APPROACH } from "./WorldConfig.js";
 import { seabedHeightAt, seabedMaxHeightWithin, worldCoastalRadiusAt } from "./Seabed.js";
 import { gateTerrainHeight } from "./GateTerrain.js";
 import { boatProfile } from "./BoatProfiles.js";
@@ -26,6 +27,7 @@ export function navigationControls(state, manual, frameDelta) {
   if (navigation.resetId !== state.resetId) {
     navigation.resetId = state.resetId;
     state.destination = null;
+    state.openingVoyage = false;
     navigation.target = null;
     navigation.stopping = false;
     return manual;
@@ -38,6 +40,7 @@ export function navigationControls(state, manual, frameDelta) {
     manual.brake
   ) {
     state.destination = null;
+    state.openingVoyage = false;
     navigation.target = null;
     navigation.stopping = false;
     return manual;
@@ -68,6 +71,7 @@ export function navigationControls(state, manual, frameDelta) {
   }
   if (distance < 0.7) {
     state.destination = null;
+    state.openingVoyage = false;
     navigation.stopping = true;
     controls.brake = true;
     return controls;
@@ -82,6 +86,7 @@ export function navigationControls(state, manual, frameDelta) {
   }
   if (navigation.stalled >= 1) {
     state.destination = null;
+    state.openingVoyage = false;
     navigation.stopping = true;
     controls.brake = true;
     return controls;
@@ -95,7 +100,7 @@ export function navigationControls(state, manual, frameDelta) {
   controls.right = angle < -0.055;
   const alignment = Math.abs(angle) > 0.8 ? 0.34 : 1;
   const desiredSpeed =
-    Math.min(boatProfile(state.boatId).cruiseSpeed, Math.max(0.7, (distance - 0.35) * 1.15)) * alignment;
+    Math.min(state.openingVoyage ? OPENING_APPROACH.speed : boatProfile(state.boatId).cruiseSpeed, Math.max(0.7, (distance - 0.35) * 1.15)) * alignment;
   controls.forward = state.speed < desiredSpeed - 0.08;
   controls.brake = state.speed > desiredSpeed + 0.25;
   return controls;
@@ -124,6 +129,7 @@ function contact(state, motion, nx, nz, depth) {
 
 /** Recover to a previously verified clear-water position, with no residual impulse. */
 export function resetBoatToWater(state) {
+  state.openingVoyage = false;
   const safe = state.safeWater ?? START;
   state.position.x = safe.x; state.position.y = 0; state.position.z = safe.z;
   state.heading = safe.heading;
@@ -152,6 +158,7 @@ export function resolveHullCoast(state, time = state.visualTime ?? 0) {
       state.beachedTime = 0;
       state.angularVelocity = (state.steering ?? 0) * boatProfile(state.boatId).turnRate;
       state.destination = null;
+      state.openingVoyage = false;
     }
     if (state.beached && !scratch.rock) {
       state.hullPose.bob += (CONTACT_GAP - scratch.margin) / BOAT_SCALE;
@@ -255,7 +262,8 @@ export function stepBoat(state, controls, frameDelta, visualTime = (state.visual
       state.beachedTime += dt;
       continue;
     }
-    state.speed += throttle * (throttle > 0 ? profile.acceleration : profile.reverseAcceleration) * dt;
+    const stroke = state.boatId === 'rowboat' ? .35 + 1.3 * Math.max(0, Math.sin((visualTime + i * dt) * ROWING_RATE)) : 1;
+    state.speed += throttle * (throttle > 0 ? profile.acceleration : profile.reverseAcceleration) * stroke * dt;
     const friction = controls.brake ? profile.brakeDrag : throttle ? 0.16 : profile.coastDrag;
     state.speed *= Math.exp(-(friction + Math.abs(state.speed) * 0.035) * dt);
     state.speed = Math.min(profile.maxSpeed, Math.max(-profile.reverseSpeed, state.speed));

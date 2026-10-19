@@ -1,3 +1,4 @@
+import { SANCTUARY_LIGHT, SANCTUARY_WATER } from './ArtDirection.js';
 import NodeShaderMaterial from './rendering/NodeShaderMaterial.jsx';
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
@@ -22,6 +23,8 @@ import { SEABED_Y } from "./WorldConfig.js";
 import { createCausticField, OCEAN_SEA_LEVEL } from "./WaterOptics.js";
 import { createSeabedGeometry, createSeabedFieldTexture, createSeabedMaterialTexture, COAST_SAND_ALBEDO, SEABED_GRID, SEABED_MAX_Y } from "./Seabed.js";
 
+import { useWindField } from "./WindContext.js";
+
 const SEA_LEVEL = OCEAN_SEA_LEVEL;
 function causticTexture() {
   const field = createCausticField();
@@ -32,8 +35,6 @@ function causticTexture() {
   texture.userData.meanFocusing = field.meanFocusing;
   return texture;
 }
-// Dense geometry resolves the calm surface around the island and all close
-// boat paths. Its tapered outer rows join a flat far ocean without extra draws.
 function createOceanGeometry() {
   const coordinates = [-250, -210];
   for (let value = -190; value < -48; value += 1) coordinates.push(value);
@@ -56,6 +57,7 @@ function createOceanGeometry() {
 }
 
 export default function Ocean({ onSail, sunRef, quality = "high", profiling = false }) {
+  const wind = useWindField();
   const bed = useRef(),
     terrain = useRef(),
     water = useRef();
@@ -94,12 +96,12 @@ export default function Ocean({ onSail, sunRef, quality = "high", profiling = fa
         uTime: { value: 0 },
         uClipDepthScale: { value: 1 },
         uClipDepthBias: { value: 0 },
-        uDeep: { value: new Color("#085478") },
-        uLagoon: { value: new Color("#188791") },
-        uShallow: { value: new Color("#55aa99") },
-        uSand: { value: new Color("#d0d39c") },
-        uMint: { value: new Color("#9fc4a5") },
-        uAqua: { value: new Color("#54b5ac") },
+        uDeep: { value: new Color(SANCTUARY_WATER.deep) },
+        uLagoon: { value: new Color(SANCTUARY_WATER.lagoon) },
+        uShallow: { value: new Color(SANCTUARY_WATER.shallow) },
+        uSand: { value: new Color(SANCTUARY_WATER.sand) },
+        uMint: { value: new Color(SANCTUARY_WATER.mint) },
+        uAqua: { value: new Color(SANCTUARY_WATER.aqua) },
       },
       // The color-only floor is hidden from the capture. Buried reef geometry must
       // still be occluded by its physical depth, otherwise its skirts ghost through.
@@ -109,8 +111,10 @@ export default function Ocean({ onSail, sunRef, quality = "high", profiling = fa
       ],
       uniforms: {
         ...seabedUniforms,
+        uWindDirection: { value: new Vector3(0.9510565, 0, -0.309017) },
+        uWindStrength: { value: 0.55 },
         uSunDirection: { value: new Vector3(22, 28, -22).normalize() },
-        uSunRadiance: { value: new Color("#fff1d6").multiplyScalar(3.2) },
+        uSunRadiance: { value: new Color(SANCTUARY_LIGHT.sun).multiplyScalar(SANCTUARY_LIGHT.sunIntensity) },
         uSunDepth: { value: null },
         uSunMatrix: { value: new Matrix4() },
         uSunReady: { value: 0 },
@@ -118,13 +122,13 @@ export default function Ocean({ onSail, sunRef, quality = "high", profiling = fa
         uTime: { value: 0 },
         uClipDepthScale: { value: 1 },
         uClipDepthBias: { value: 0 },
-        uDeep: { value: new Color("#085478") },
-        uLagoon: { value: new Color("#188791") },
-        uShallow: { value: new Color("#55aa99") },
-        uSand: { value: new Color("#d0d39c") },
-        uMint: { value: new Color("#9fc4a5") },
-        uAqua: { value: new Color("#54b5ac") },
-        uFoam: { value: new Color("#f0fbf7") },
+        uDeep: { value: new Color(SANCTUARY_WATER.deep) },
+        uLagoon: { value: new Color(SANCTUARY_WATER.lagoon) },
+        uShallow: { value: new Color(SANCTUARY_WATER.shallow) },
+        uSand: { value: new Color(SANCTUARY_WATER.sand) },
+        uMint: { value: new Color(SANCTUARY_WATER.mint) },
+        uAqua: { value: new Color(SANCTUARY_WATER.aqua) },
+        uFoam: { value: new Color(SANCTUARY_WATER.foam) },
         uCoastSand: { value: new Color().fromArray(COAST_SAND_ALBEDO) },
         uUnderwater: { value: target.texture },
         uCaustics: { value: caustics },
@@ -198,7 +202,11 @@ export default function Ocean({ onSail, sunRef, quality = "high", profiling = fa
     const shadow = sunRef.current?.shadow;
     if (!shadow?.map || shadow.map.width !== shadow.mapSize.width || shadow.map.height !== shadow.mapSize.height) return;
     const { uniforms, target, clip } = resourceRef.current;
-    uniforms.uTime.value = clock.elapsedTime;
+    uniforms.uTime.value = wind ? wind.time.value : clock.elapsedTime;
+    if (wind) {
+      uniforms.uWindDirection.value.copy(wind.direction.value);
+      uniforms.uWindStrength.value = wind.strength.value;
+    }
     if (sunRef.current) uniforms.uSunRadiance.value.copy(sunRef.current.color).multiplyScalar(sunRef.current.intensity);
     uniforms.toneMappingExposure.value = gl.toneMappingExposure;
     const previousTarget = gl.getRenderTarget();

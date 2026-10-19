@@ -1,3 +1,5 @@
+import BoatPennant from './BoatPennant.jsx';
+import RowboatOars from './RowboatOars.jsx';
 import WindCloth from './WindCloth.jsx';
 import { useWindField } from './WindContext.js';
 import { canopyDisplacement } from './ClothMotion.js';
@@ -230,7 +232,7 @@ function BoatFittings({ id }) {
   </group>;
 }
 
-const BoatModel = memo(function BoatModel({ modelRef, motorRef, propellerRef, boatId }) {
+const BoatModel = memo(function BoatModel({ modelRef, motorRef, propellerRef, boatId, boatState, pennant, paused }) {
   const profile = boatProfile(boatId);
   const data = useMemo(() => {
     const hull = hullGeometry();
@@ -276,11 +278,15 @@ const BoatModel = memo(function BoatModel({ modelRef, motorRef, propellerRef, bo
   }, [data]);
   return (
     <group ref={modelRef} scale={profile.modelScale}>
-      <BoatFittings id={boatId} />
-      <BoatHardware reflection={data.reflection} />
+      <BoatPennant id={pennant} paused={paused}/>
+      {boatId !== "rowboat" && <BoatFittings id={boatId} />}
+      {boatId === "rowboat" && <RowboatOars boatState={boatState} />}
+      {boatId !== "rowboat" && <BoatHardware reflection={data.reflection} />}
       <mesh geometry={data.hull} castShadow receiveShadow>
         <meshPhysicalMaterial
-          vertexColors
+          vertexColors={boatId !== "rowboat"}
+          map={boatId === "rowboat" ? data.teak : null}
+          color={boatId === "rowboat" ? "#ac7b4d" : "white"}
           emissiveNode={hullFill} onBeforeCompile={fillHullSide}
           emissive={CREAM}
           emissiveIntensity={0.055}
@@ -294,7 +300,8 @@ const BoatModel = memo(function BoatModel({ modelRef, motorRef, propellerRef, bo
       </mesh>
       <mesh geometry={data.inside} castShadow receiveShadow>
         <meshPhysicalMaterial
-          vertexColors
+          vertexColors={boatId !== "rowboat"}
+          map={boatId === "rowboat" ? data.teak : null}
           color={profile.interior}
           emissive={profile.interior}
           emissiveIntensity={0.035}
@@ -308,12 +315,12 @@ const BoatModel = memo(function BoatModel({ modelRef, motorRef, propellerRef, bo
       </mesh>
       <mesh position={[0, 0.31, 1.66]} castShadow>
         <boxGeometry args={[1.49, 0.46, 0.08]} />
-        <meshStandardMaterial color={CREAM} roughness={0.52} />
+        <meshStandardMaterial color={boatId === "rowboat" ? "#795134" : CREAM} roughness={0.52} />
       </mesh>
       <Tube
         points={data.rails}
         radius={0.064}
-        color={CREAM}
+        color={boatId === "rowboat" ? "#795134" : CREAM}
         emissiveIntensity={0.025}
         roughness={0.36}
         clearcoat={0.24}
@@ -413,7 +420,7 @@ const BoatModel = memo(function BoatModel({ modelRef, motorRef, propellerRef, bo
         scale={[0.39, 0.13, 0.3]}
         color="#e9e1bc"
       />
-      <group ref={motorRef} position={MOTOR_POSITION}>
+      <group visible={boatId !== "rowboat"} ref={motorRef} position={MOTOR_POSITION}>
         <Timber
           position={[0, 0.28, 0]}
           scale={[0.5, 0.52, 0.39]}
@@ -449,7 +456,7 @@ const BoatModel = memo(function BoatModel({ modelRef, motorRef, propellerRef, bo
           color="#344a3c"
         />
       </group>
-      <group position={[0, 0.62, -1.76]} rotation={[0, 0.55, 0]}>
+      <group visible={boatId !== "rowboat"} position={[0, 0.62, -1.76]} rotation={[0, 0.55, 0]}>
         <mesh position={[0, 0.54, 0]} castShadow>
           <cylinderGeometry args={[0.019, 0.026, 1.08, 8]} />
           <meshStandardMaterial color="#b79b62" roughness={0.55} />
@@ -647,7 +654,7 @@ const Wake = memo(function Wake({ boatState, paused }) {
       // unequal lobes separate as the wash slows, instead of drawing rails.
       const mainSide = Math.random() < 0.5 ? -1 : 1;
       const count = Math.random() < 0.34 ? 3 : 4;
-      const strength = 0.72 + Math.random() * 0.28;
+      const strength = (0.72 + Math.random() * 0.28) * (state.boatId === "rowboat" ? 0.18 : 1);
       for (let sample = 0; sample < count; sample++) {
         const fresh = sample === 0;
         const edge = sample === 1 || sample === 2;
@@ -735,10 +742,12 @@ const Wake = memo(function Wake({ boatState, paused }) {
 
 export default function Boat({
   boatId = "skiff",
+  pennant,
   input,
   boatState,
   onTelemetry,
   paused = false,
+  startup,
   terrainRef,
 }) {
   const root = useRef();
@@ -759,6 +768,9 @@ export default function Boat({
     );
     const t = state.visualTime;
     root.current.position.copy(state.position);
+    const entrance = startup?.current.offset ?? 0;
+    root.current.position.x += Math.sin(state.heading) * entrance;
+    root.current.position.z += Math.cos(state.heading) * entrance;
     root.current.rotation.y = state.heading;
     boatHullPose(state, t, pose.current);
     model.current.position.y = pose.current.bob;
@@ -771,6 +783,7 @@ export default function Boat({
     if (onTelemetry && telemetryTime.current > 0.16) {
       telemetryTime.current = 0;
       onTelemetry({
+        openingVoyage: Boolean(state.openingVoyage),
         beached: Boolean(state.beached),
         beachedTime: state.beachedTime ?? 0,
         speed: state.speed,
@@ -783,7 +796,7 @@ export default function Boat({
   return (
     <>
       <group ref={root} scale={BOAT_SCALE}>
-        <BoatModel key={boatId} boatId={boatId} modelRef={model} motorRef={motor} propellerRef={propeller} />
+        <BoatModel pennant={pennant} paused={paused} key={boatId} boatState={boatState} boatId={boatId} modelRef={model} motorRef={motor} propellerRef={propeller} />
       </group>
       <Wake boatState={boatState} paused={paused} />
     </>

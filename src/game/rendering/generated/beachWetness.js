@@ -163,7 +163,7 @@ const waterSunSpecular = /*@__PURE__*/ Fn( ( [ n, v, light, roughness ] ) => {
 	const nv = float(clamp( dot( n, v ), .001, 1. )).toVar(), nl = float(clamp( dot( n, light ), 0., 1. )).toVar();
 	const nh = float(clamp( dot( n, h ), 0., 1. )).toVar(), vh = float(clamp( dot( v, h ), 0., 1. )).toVar();
 	const alpha = float(roughness.mul( roughness )).toVar(), a2 = float(alpha.mul( alpha ).add( .0025 )).toVar();
-	const wind = vec3(vec3( .93, 0., .367 )).toVar();
+	const wind = vec3(vec3( 0.951056516, 0., - 0.309016994 )).toVar();
 	const tangent = vec3(normalize( wind.sub( n.mul( dot( wind, n ) ) ) )).toVar();
 	const bitangent = vec3(cross( n, tangent )).toVar();
 	const ax = float(sqrt( a2 ).mul( .75 )).toVar(), ay = float(sqrt( a2 ).div( .75 )).toVar();

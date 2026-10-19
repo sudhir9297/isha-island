@@ -1,3 +1,4 @@
+import {createIslandSoundscape} from './IslandSoundscape.js';
 import { createWindAudio } from './WindAudio.js';
 import { useRef, useEffect } from "react";
 import { footstepSamples } from "./Footsteps.js";
@@ -62,26 +63,28 @@ function createAudio() {
   flutter.connect(amplitudeFlutter).connect(motorGain.gain);
   [waves, motor, flutter].forEach((source) => source.start());
   const wind = createWindAudio(context, master);
+  const soundscape = createIslandSoundscape(context, master);
   const footsteps = [false, true].map(burdened => {
     const data = footstepSamples(context.sampleRate, burdened);
     const clip = context.createBuffer(1, data.length, context.sampleRate);
     clip.copyToChannel(data, 0);
     return clip;
   });
-  return { context, master, wind, boatPanner, seaGain, motor, motorFilter, motorGain, wakeGain, footsteps, amplitudeFlutter,
-    flutter, sources: [waves, motor, flutter, wind.source], suspendTimer: null, lastSpeed: -1 };
+  return { context, master, wind, soundscape, boatPanner, seaGain, motor, motorFilter, motorGain, wakeGain, footsteps, amplitudeFlutter,
+    flutter, sources: [waves, motor, flutter, wind.source, soundscape.source], suspendTimer: null, lastSpeed: -1 };
 }
 
-function setSpeed(audio, value, aboard = true) {
+function setSpeed(audio, value, aboard = true, powered = true) {
   const throttle = Math.min(1, Math.abs(value) / 6.2);
-  if (Math.abs(throttle - audio.lastSpeed) < 0.004 && audio.aboard === aboard) return;
+  if (Math.abs(throttle - audio.lastSpeed) < 0.004 && audio.aboard === aboard && audio.powered === powered) return;
   audio.aboard = aboard;
+  audio.powered = powered;
   audio.lastSpeed = throttle;
   const now = audio.context.currentTime;
   audio.motor.frequency.setTargetAtTime(42 + throttle * 48, now, 0.3);
   audio.motorFilter.frequency.setTargetAtTime(420 + throttle * 420, now, 0.4);
-  audio.motorGain.gain.setTargetAtTime(aboard ? 0.011 + throttle * 0.025 : .004, now, 0.3);
-  audio.amplitudeFlutter.gain.setTargetAtTime(aboard ? .0012 : 0, now, .15);
+  audio.motorGain.gain.setTargetAtTime(powered ? (aboard ? 0.011 + throttle * 0.025 : .004) : 0, now, 0.3);
+  audio.amplitudeFlutter.gain.setTargetAtTime(powered && aboard ? .0012 : 0, now, .15);
   audio.wakeGain.gain.setTargetAtTime(throttle * throttle * 0.1, now, 0.65);
   audio.flutter.frequency.setTargetAtTime(5.8 + throttle * 2.3, now, 0.3);
 }
@@ -91,6 +94,7 @@ export default function useSeaAudio() {
   const enabledRef = useRef(false);
   const speedRef = useRef(0);
   const aboardRef = useRef(true);
+  const poweredRef = useRef(false);
 
   useEffect(() => () => {
     const previous = audio.current;
@@ -125,18 +129,19 @@ export default function useSeaAudio() {
     }
     const current = audio.current;
     clearTimeout(current.suspendTimer);
-    setSpeed(current, speedRef.current, aboardRef.current);
+    setSpeed(current, speedRef.current, aboardRef.current, poweredRef.current);
     await current.context.resume();
     if (audio.current === current && enabledRef.current) {
       current.master.gain.setTargetAtTime(1, current.context.currentTime, 0.12);
     }
   }
 
-  function speed(value, aboard = true) {
+  function speed(value, aboard = true, powered = true) {
     aboardRef.current = aboard;
+    poweredRef.current = powered;
     speedRef.current = Number.isFinite(value) ? value : 0;
     if (audio.current && audio.current.context.state !== "closed") {
-      setSpeed(audio.current, speedRef.current, aboard);
+      setSpeed(audio.current, speedRef.current, aboard, powered);
     }
   }
 
@@ -227,10 +232,41 @@ export default function useSeaAudio() {
     };
     tone.start(now); tone.stop(now + .25);
   }
+  function discovery(position, bell = false) {
+    const current = audio.current;
+    if (!enabledRef.current || !current || current.context.state !== 'running') return;
+    const { context } = current, now = context.currentTime;
+    (bell ? [440, 880, 1192, 1760] : [660, 990]).forEach((frequency, index) => {
+      const tone=context.createOscillator(), gain=context.createGain();
+      const panner=spatialPanner(context,current.master,position), start=now+index*.09;
+      tone.type='sine'; tone.frequency.value=frequency;
+      gain.gain.setValueAtTime(0,start); gain.gain.linearRampToValueAtTime(.065,start+.018);
+      gain.gain.exponentialRampToValueAtTime(.0001,start+(bell ? 3 : .65));
+      tone.connect(gain).connect(panner); current.sources.push(tone);
+      tone.onended=()=>{tone.disconnect();gain.disconnect();panner.disconnect();const i=current.sources.indexOf(tone);if(i>=0)current.sources.splice(i,1);};
+      tone.start(start);tone.stop(start+(bell ? 3.1 : .7));
+    });
+  }
+  function splash(position) {
+    const current = audio.current;
+    if (!enabledRef.current || !current || current.context.state !== 'running') return;
+    const {context}=current, now=context.currentTime;
+    const source=context.createBufferSource(), gain=context.createGain(), filter=context.createBiquadFilter();
+    const buffer=context.createBuffer(1,Math.floor(context.sampleRate*.18),context.sampleRate);
+    const samples=buffer.getChannelData(0);
+    for(let i=0;i<samples.length;i++) samples[i]=(Math.random()*2-1)*(1-i/samples.length);
+    source.buffer=buffer; filter.type='bandpass'; filter.frequency.value=1400; filter.Q.value=.7;
+    const panner=spatialPanner(context,current.master,position);
+    gain.gain.setValueAtTime(.12,now); gain.gain.exponentialRampToValueAtTime(.0001,now+.18);
+    source.connect(filter).connect(gain).connect(panner); current.sources.push(source);
+    source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();panner.disconnect();const i=current.sources.indexOf(source);if(i>=0)current.sources.splice(i,1);};
+    source.start();
+  }
   function wind(position, strength, time, paused) {
     const current = audio.current;
     if (!enabledRef.current || !current || current.context.state !== 'running') return;
     current.wind.update(position, strength, time, paused);
+    current.soundscape.update(position, paused);
   }
-  return { toggle, speed, release, footstep, spatial, impact, bird, wind };
+  return { toggle, speed, release, footstep, spatial, impact, bird, wind, discovery, splash, bell: position => discovery(position, true) };
 }

@@ -46,3 +46,45 @@ test('reduced motion removes follow lag and speed-driven zoom', () => {
   assert.equal(state.target.x, 8);
   assert.equal(state.viewHeight, FOLLOW.walkingHeight);
 });
+
+test('arrival keeps the dock traveler and gate crown in frame on desktop and phone', async () => {
+  const { OrthographicCamera } = await import('three');
+  const { CAMERA_OFFSET } = await import('./WorldConfig.js');
+  const { DOCK, dockWorldPoint } = await import('./WalkingSurface.js');
+  const dock = dockWorldPoint(0, 5.15);
+  const position = new Vector3(dock.x, DOCK.deckHeight, dock.z);
+  for (const [width, height] of [[1280,720],[390,844]]) {
+    const state = stepCameraFollow(createCameraFollow(), {position, aboard:false, arrival:true}, 0);
+    const camera = new OrthographicCamera(-width/2,width/2,height/2,-height/2,.1,400);
+    camera.zoom = Math.min(height,width*1.8)/state.viewHeight;
+    camera.position.copy(state.target).add(new Vector3(...CAMERA_OFFSET));
+    camera.lookAt(state.target); camera.updateProjectionMatrix(); camera.updateMatrixWorld();
+    for (const point of [position.clone(), position.clone().add(new Vector3(0,2.3,0)), new Vector3(0,8,-12)]) {
+      point.project(camera);
+      assert.ok(Math.abs(point.x)<.95 && Math.abs(point.y)<.85, `subject outside safe frame at ${width}: ${point.toArray()}`);
+    }
+  }
+});
+
+test('arrival framing leaves other islands, the doorway, and completed journeys alone', () => {
+  for (const position of [new Vector3(65,0,-48),new Vector3(130,0,-84),new Vector3(0,2.35,-11),new Vector3(0,0,30)]) {
+    const state = stepCameraFollow(createCameraFollow(), {position,aboard:false,arrival:true}, 0);
+    assert.ok(state.target.equals(position));
+    assert.equal(state.viewHeight,FOLLOW.walkingHeight);
+  }
+  const position = new Vector3(6,0,0);
+  const state = stepCameraFollow(createCameraFollow(), {position,aboard:false,arrival:false},0);
+  assert.ok(state.target.equals(position));
+  assert.equal(state.viewHeight,FOLLOW.walkingHeight);
+});
+
+test('arrival preserves manual zoom and eases back without a camera cut', () => {
+  const position = new Vector3(6,.6,0);
+  const state = stepCameraFollow(createCameraFollow(), {position,aboard:false,arrival:true},0);
+  changeFollowZoom(state,Math.log(1.2));
+  const previous = state.target.clone(), height = state.viewHeight;
+  stepCameraFollow(state,{position,aboard:false,arrival:false},1/60);
+  assert.equal(state.zoom,1.2);
+  assert.ok(state.target.distanceTo(previous)<previous.distanceTo(position));
+  assert.ok(state.viewHeight<height && state.viewHeight>FOLLOW.walkingHeight/1.2);
+});

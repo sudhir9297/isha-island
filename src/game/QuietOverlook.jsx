@@ -25,12 +25,12 @@ export default function QuietOverlook({journey}) {
   const y=gateGround(REST_SPOT.x,REST_SPOT.z+12);
   useFrame(({clock})=>{
     if(!beacon.current)return;
-    beacon.current.visible=journey.current.released&&!journey.current.completed;
+    beacon.current.visible=journey.current.released&&!journey.current.completed&&journey.current.mode==='walking'&&Math.hypot(journey.current.position.x-REST_SPOT.x,journey.current.position.z-REST_SPOT.z)<3;
     if(ring.current)ring.current.material.opacity=.32+Math.sin(clock.elapsedTime*1.4)*.1;
   });
   return <><mesh name="Overlook stone seat and pale flowers" geometry={garden} castShadow receiveShadow><meshStandardMaterial vertexColors roughness={1} flatShading/></mesh><group name="Quiet sea overlook" position={[REST_SPOT.x,y,REST_SPOT.z]}>
     {/* Low stones frame the standing spot, leaving the central walking surface clear. */}
-    {[-1,1].map(side=><mesh key={side} position={[side*1.25,-.08,-.35]} scale={[.4,.24,.55]} castShadow receiveShadow>
+    {[-1,1].map(side=><mesh userData={{ walkingSolid: true }} key={side} position={[side*1.25,-.08,-.35]} scale={[.4,.24,.55]} castShadow receiveShadow>
       <icosahedronGeometry args={[1,1]}/><meshStandardMaterial color="#aaa99f" roughness={1} flatShading/>
     </mesh>)}
     <group ref={beacon} visible={false}>

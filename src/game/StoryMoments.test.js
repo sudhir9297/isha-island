@@ -37,7 +37,7 @@ test('walker cannot pass through the overlook seat',()=>{
   s.position.set(OVERLOOK_SEAT.x,1,OVERLOOK_SEAT.z+.47);
   const before=s.position.clone();
   stepJourney(s,b,{forward:true},.05);
-  assert.deepEqual(s.position,before);
+  assert.equal(s.position.z,before.z); // Tangential sliding is allowed; entry into the seat is not.
   stepJourney(s,b,{backward:true},.05);
   assert.ok(s.position.z>before.z);
 });

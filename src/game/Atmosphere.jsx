@@ -1,3 +1,4 @@
+import { SANCTUARY_LIGHT, SANCTUARY_WATER } from './ArtDirection.js';
 /* eslint-disable react/immutability -- Three scene objects and reusable particle data are updated in the frame loop. */
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
@@ -9,12 +10,12 @@ import { islandGroundAt } from './IslandGround.js';
 
 export function WeatherLighting({ sunRef }) {
   const wind = useWindField();
-  const colors = useMemo(() => ({ sunny: new Color('#fff1d6'), cloudy: new Color('#dbe5ef'), clear: new Color('#07526f'), haze: new Color('#416b80') }), []);
+  const colors = useMemo(() => ({ sunny: new Color(SANCTUARY_LIGHT.sun), cloudy: new Color('#dbe5ef'), clear: new Color(SANCTUARY_WATER.deep), haze: new Color('#416b80') }), []);
   useFrame(({ scene }) => {
     if (!sunRef.current) return;
-    sunRef.current.intensity = wind.weather.sun;
+    sunRef.current.intensity = SANCTUARY_LIGHT.sunIntensity * (1 - wind.weather.cloud * .18);
     sunRef.current.color.copy(colors.sunny).lerp(colors.cloudy, wind.weather.cloud);
-    sunRef.current.shadow.intensity = 0.7 - wind.weather.cloud * 0.18;
+    sunRef.current.shadow.intensity = SANCTUARY_LIGHT.shadowIntensity - wind.weather.cloud * 0.18;
     scene.background?.copy(colors.clear).lerp(colors.haze, wind.weather.cloud * 0.4);
   }, 0.65);
   return null;
